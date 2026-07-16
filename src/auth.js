@@ -1,5 +1,5 @@
 const jwt=require('jsonwebtoken');const crypto=require('crypto');const bcrypt=require('bcryptjs');const {db,id,now}=require('./db');
-const {accessSecret:ACCESS_SECRET,refreshSecret:REFRESH_SECRET}=require('./security-config');
+const ACCESS_SECRET=process.env.JWT_SECRET||'development-access-secret-change-me';const REFRESH_SECRET=process.env.JWT_REFRESH_SECRET||'development-refresh-secret-change-me';
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const base32='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 function newTotpSecret(){let out='',buf=crypto.randomBytes(20);for(const b of buf)out+=base32[b%32];return out}

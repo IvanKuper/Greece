@@ -67,7 +67,19 @@ img { display: block; max-width: 100%; }
 .button.secondary { background: color-mix(in srgb, var(--surface) 85%, transparent); color: var(--text); border-color: var(--line); }
 .button.small { min-height: 38px; padding: 8px 14px; font-size: 12px; }
 .hero { min-height: calc(100vh - 82px); display: grid; align-items: center; position: relative; isolation: isolate; overflow: hidden; border-bottom: 1px solid var(--line); }
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 .hero::before { content: ""; position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(7,10,14,.96) 20%, rgba(7,10,14,.64) 62%, rgba(7,10,14,.86)), url("/hero.webp") center/cover; }
+=======
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(7,10,14,.96) 20%, rgba(7,10,14,.64) 62%, rgba(7,10,14,.86)), url("https://media.base44.com/images/public/6a44dca7580bc27a93b13907/9e912faac_generated_image.png") center/cover; }
+>>>>>>> theirs
+=======
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(7,10,14,.96) 20%, rgba(7,10,14,.64) 62%, rgba(7,10,14,.86)), url("https://media.base44.com/images/public/6a44dca7580bc27a93b13907/9e912faac_generated_image.png") center/cover; }
+>>>>>>> theirs
+=======
+.hero::before { content: ""; position: absolute; inset: 0; z-index: -2; background: linear-gradient(90deg, rgba(7,10,14,.96) 20%, rgba(7,10,14,.64) 62%, rgba(7,10,14,.86)), url("https://media.base44.com/images/public/6a44dca7580bc27a93b13907/9e912faac_generated_image.png") center/cover; }
+>>>>>>> theirs
 html[dir="rtl"] .hero::before { transform: scaleX(-1); }
 .hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px); background-size: 58px 58px; mask-image: linear-gradient(to bottom, black, transparent 88%); }
 .hero-content { padding-block: 90px; max-width: 810px; }
@@ -97,10 +109,28 @@ html[data-theme="light"] .hero .lead { color: #d5d9df; }
 .card p { color: var(--muted); margin: 0; }
 .card-list { padding: 0; margin: 18px 0 0; list-style: none; color: var(--muted); }
 .card-list li { padding: 7px 0; border-top: 1px solid var(--line); }
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 .project { min-height: 380px; display: flex; flex-direction: column; justify-content: end; }
 .project > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .project::before { content: ""; position: absolute; z-index: 1; inset: 0; background: linear-gradient(transparent 15%, rgba(7,10,14,.93)); }
 .project > :not(img) { position: relative; z-index: 2; }
+=======
+.project { min-height: 380px; display: flex; flex-direction: column; justify-content: end; background-size: cover; background-position: center; }
+.project::before { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 15%, rgba(7,10,14,.93)); }
+.project > * { position: relative; z-index: 1; }
+>>>>>>> theirs
+=======
+.project { min-height: 380px; display: flex; flex-direction: column; justify-content: end; background-size: cover; background-position: center; }
+.project::before { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 15%, rgba(7,10,14,.93)); }
+.project > * { position: relative; z-index: 1; }
+>>>>>>> theirs
+=======
+.project { min-height: 380px; display: flex; flex-direction: column; justify-content: end; background-size: cover; background-position: center; }
+.project::before { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 15%, rgba(7,10,14,.93)); }
+.project > * { position: relative; z-index: 1; }
+>>>>>>> theirs
 .project .tag { align-self: flex-start; margin-bottom: 12px; }
 .tag { display: inline-flex; padding: 5px 10px; border: 1px solid rgba(209,123,59,.38); border-radius: 999px; color: var(--copper-light); background: rgba(209,123,59,.08); font-size: 11px; font-weight: 800; }
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--line); }
@@ -136,6 +166,9 @@ input[type="range"] { accent-color: var(--copper); }
 .form-status { min-height: 24px; margin: 12px 0 0; font-weight: 700; }
 .form-status.success { color: var(--green); }
 .form-status.error { color: var(--red); }
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
 .honeypot { position: absolute !important; inset-inline-start: -10000px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
 .secure-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, .8fr); gap: 22px; align-items: start; }
 .document-meta { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
@@ -152,6 +185,12 @@ input[type="range"] { accent-color: var(--copper); }
 .dashboard-public { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .portal-row div { display: grid; gap: 4px; }
 .portal-request { max-width: 820px; margin: 22px auto 0; }
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 .page-hero { padding: 100px 0 70px; border-bottom: 1px solid var(--line); background: radial-gradient(circle at 20% 20%, rgba(209,123,59,.14), transparent 35%), var(--bg-2); }
 .page-hero h1 { font-size: clamp(46px, 7vw, 88px); margin: 18px 0; }
 .page-hero p { max-width: 760px; color: var(--muted); font-size: 19px; }
@@ -192,7 +231,19 @@ input[type="range"] { accent-color: var(--copper); }
   .hero h1 { font-size: clamp(43px, 16vw, 70px); }
   .section { padding: 76px 0; }
   .section-heading { align-items: start; flex-direction: column; }
+<<<<<<< ours
+<<<<<<< ours
+<<<<<<< ours
   .grid.three, .cert-grid, .calculator, .contact-layout, .footer-grid, .secure-layout, .dashboard-public { grid-template-columns: 1fr; }
+=======
+  .grid.three, .cert-grid, .calculator, .contact-layout, .footer-grid { grid-template-columns: 1fr; }
+>>>>>>> theirs
+=======
+  .grid.three, .cert-grid, .calculator, .contact-layout, .footer-grid { grid-template-columns: 1fr; }
+>>>>>>> theirs
+=======
+  .grid.three, .cert-grid, .calculator, .contact-layout, .footer-grid { grid-template-columns: 1fr; }
+>>>>>>> theirs
   .metrics { grid-template-columns: 1fr 1fr; }
   .form-grid { grid-template-columns: 1fr; }
   .hero-proof { gap: 18px; }

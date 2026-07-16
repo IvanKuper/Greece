@@ -1,17 +1,14 @@
 const $ = (s, p = document) => p.querySelector(s),
   $$ = (s, p = document) => [...p.querySelectorAll(s)];
-addEventListener("error", (event) => { document.documentElement.dataset.runtimeError = event.message; });
-addEventListener("unhandledrejection", (event) => { document.documentElement.dataset.runtimeError = String(event.reason?.message || event.reason); });
 const API = "/api/v1";
-let token = "",
+let token = localStorage.accessToken || "",
   user = null,
   current = "dashboard",
   page = 1,
   search = "",
   cache = {},
   notificationController = null,
-  businessSettingsCache = {},
-  dashboardLayout = [];
+  businessSettingsCache = {};
 const modules = {
   dashboard: { label: "Dashboard", icon: "⌂", group: "Overview" },
   customers: {
@@ -55,13 +52,6 @@ const modules = {
       "expected_close",
       "notes",
     ],
-  },
-  quotes: { label: "Quotations", icon: "◫", group: "CRM", special: "quotes" },
-  contracts: { label: "Contracts", icon: "✎", group: "CRM", special: "contracts" },
-  customer_portal: { label: "Customer Portal", icon: "◎", group: "CRM", special: "customerPortal" },
-  service_requests: {
-    label: "Service Desk", icon: "⚑", group: "CRM",
-    fields: ["customer_id", "contact_name", "contact_email", "title", "category", "priority", "status", "sla_due_at", "description"],
   },
   communications: {
     label: "Communications",
@@ -139,21 +129,6 @@ const modules = {
       "actions",
       "active",
     ],
-  },
-  workflow_runs: { label: "Workflow History", icon: "↻", group: "Work", readOnly: true },
-  operations_schedule: { label: "Resource Schedule", icon: "▦", group: "Work", special: "operationsSchedule" },
-  work_orders: { label: "Field Service", icon: "⌖", group: "Work", special: "fieldService" },
-  assets: {
-    label: "Customer Assets", icon: "◈", group: "Work",
-    fields: ["customer_id", "asset_tag", "name", "category", "manufacturer", "model", "serial_number", "location", "status", "installed_at", "warranty_until", "next_service_at", "notes"],
-  },
-  shifts: {
-    label: "Shifts", icon: "◷", group: "Work",
-    fields: ["employee_id", "project_id", "customer_id", "title", "start_at", "end_at", "location", "status", "notes"],
-  },
-  time_entries: {
-    label: "Time Tracking", icon: "◴", group: "Work",
-    fields: ["employee_id", "work_order_id", "project_id", "started_at", "ended_at", "minutes", "entry_type", "notes"],
   },
   approval_requests: {
     label: "Approvals",
@@ -260,17 +235,6 @@ const modules = {
     group: "Finance",
     special: "reports",
   },
-  analytics: { label: "Business Analytics", icon: "▥", group: "Finance", special: "analytics" },
-  inventory_items: { label: "Inventory", icon: "▰", group: "Operations", special: "inventory" },
-  inventory_movements: { label: "Stock Movements", icon: "↔", group: "Operations", readOnly: true },
-  communication_templates: {
-    label: "Message Templates", icon: "✉", group: "Operations",
-    fields: ["name", "channel", "category", "language", "subject", "body", "active"],
-  },
-  communication_consents: {
-    label: "Communication Consent", icon: "✓", group: "Operations",
-    fields: ["customer_id", "lead_id", "channel", "purpose", "consented", "source", "captured_at", "revoked_at"],
-  },
   job_listings: {
     label: "Job Listings",
     icon: "⚑",
@@ -330,7 +294,6 @@ const modules = {
     special: "monitoring",
   },
   backups: { label: "Backups", icon: "↻", group: "System", special: "backups" },
-  assistant: { label: "AI Assistant", icon: "✦", group: "System", special: "assistant" },
   settings: {
     label: "Business Settings",
     icon: "⚙",
@@ -368,7 +331,7 @@ async function api(url, opt = {}) {
       ...(opt.headers || {}),
     },
   });
-  if (r.status === 401 && !["/auth/refresh", "/auth/login"].includes(url)) {
+  if (r.status === 401 && url != "/auth/refresh" && localStorage.accessToken) {
     const rr = await fetch(API + "/auth/refresh", {
       method: "POST",
       credentials: "include",
@@ -376,6 +339,7 @@ async function api(url, opt = {}) {
     if (rr.ok) {
       const x = await rr.json();
       token = x.token;
+      localStorage.accessToken = token;
       r = await fetch(API + url, {
         ...opt,
         credentials: "include",
@@ -410,6 +374,7 @@ async function login(e) {
     });
     if (x.twoFactorRequired) return toast("Enter your two-factor code");
     token = x.token;
+    localStorage.accessToken = token;
     user = x.user;
     appView();
   } catch (e) {
@@ -445,12 +410,11 @@ function sidebar() {
 function appView() {
   document.body.className = document.documentElement.dir === "rtl" ? "rtl" : "";
   $("#app").innerHTML =
-    `<div class="app">${sidebar()}<div class="workspace"><header class="topbar"><button class="icon-btn mobile-menu" aria-label="Open menu" onclick="$('.sidebar').classList.toggle('open')">☰</button><div class="global-search"><label class="sr-only" for="globalSearch">Search business records</label><input class="input" id="globalSearch" placeholder="Search or press ⌘K for commands…"><div class="search-results" id="searchResults"></div></div><div class="top-actions"><button class="icon-btn" title="Theme" aria-label="Switch color theme" onclick="toggleTheme()">◐</button><button class="icon-btn" title="Language" aria-label="Switch language" onclick="toggleLanguage()">文</button><button class="icon-btn notification-button" title="Notifications" aria-label="Open notifications" onclick="openNotificationDrawer()">♢<span id="notificationCount" hidden></span></button><div class="avatar">${(user?.name || "A").slice(0, 1)}</div><span class="user-name"><b>${user?.name || ""}</b><small class="muted" style="display:block">${user?.role || ""}</small></span><button class="icon-btn" title="Logout" aria-label="Log out" onclick="logout()">↪</button></div></header><main class="content" id="content" tabindex="-1"></main><nav class="mobile-actions" aria-label="Quick actions"><button onclick="openModule('dashboard')">⌂<span>Home</span></button><button onclick="openModule('service_requests')">⚑<span>Service</span></button><button onclick="openModule('assistant')">✦<span>Assistant</span></button><button onclick="openNotificationDrawer()">♢<span>Alerts</span></button></nav><aside class="notification-drawer" id="notificationDrawer" aria-label="Notification center" aria-hidden="true"></aside></div></div>`;
+    `<div class="app">${sidebar()}<div class="workspace"><header class="topbar"><button class="icon-btn mobile-menu" aria-label="Open menu" onclick="$('.sidebar').classList.toggle('open')">☰</button><div class="global-search"><label class="sr-only" for="globalSearch">Search business records</label><input class="input" id="globalSearch" placeholder="Search customers, people, projects, invoices…"><div class="search-results" id="searchResults"></div></div><div class="top-actions"><button class="icon-btn" title="Theme" aria-label="Switch color theme" onclick="toggleTheme()">◐</button><button class="icon-btn" title="Language" aria-label="Switch language" onclick="toggleLanguage()">文</button><button class="icon-btn notification-button" title="Notifications" aria-label="Open notifications" onclick="openModule('notifications')">♢<span id="notificationCount" hidden></span></button><div class="avatar">${(user?.name || "A").slice(0, 1)}</div><span class="user-name"><b>${user?.name || ""}</b><small class="muted" style="display:block">${user?.role || ""}</small></span><button class="icon-btn" title="Logout" aria-label="Log out" onclick="logout()">↪</button></div></header><main class="content" id="content" tabindex="-1"></main></div></div>`;
   $$("[data-module]").forEach(
     (b) => (b.onclick = () => openModule(b.dataset.module)),
   );
   $("#globalSearch").oninput = globalSearch;
-  document.onkeydown = commandShortcut;
   startNotificationStream();
   render();
 }
@@ -468,16 +432,21 @@ async function dashboard() {
   const el = $("#content");
   el.innerHTML = '<div class="empty">Loading executive dashboard…</div>';
   try {
-    const [x, emailStatus, preferences] = await Promise.all([
+    const [x, emailStatus] = await Promise.all([
         api("/dashboard"),
         api("/system/email-status"),
-        api("/preferences"),
       ]),
       k = x.kpis;
-    const defaultLayout = ["revenue", "expenses", "profit", "outstanding", "customers", "projects", "employees", "tasksToday"], parsedLayout = (() => { try { return JSON.parse(preferences.dashboard_layout || "[]"); } catch { return []; } })();
-    dashboardLayout = parsedLayout.length ? parsedLayout.filter((key) => defaultLayout.includes(key)) : defaultLayout;
-    const cards = { revenue: ["Revenue", money(k.revenue), "Current income"], expenses: ["Expenses", money(k.expenses), "Current period"], profit: ["Net profit", money(k.profit), "Income less expenses"], outstanding: ["Outstanding", money(k.outstanding), "Invoices due"], customers: ["Active customers", k.customers, "Customer base"], projects: ["Active projects", k.projects, "In delivery"], employees: ["Employees", k.employees, "Active team"], tasksToday: ["Due today", k.tasksToday, "Tasks requiring action"] };
-    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">Executive overview</span><h1>Good ${new Date().getHours() < 12 ? "morning" : "afternoon"}, ${(user.name || "").split(" ")[0]}</h1><p class="muted">Here is what is happening across your business today.</p></div><div class="card-actions"><button class="btn secondary" onclick="customizeDashboard()">Customize</button><button class="btn" onclick="openModule('tasks');setTimeout(openCreate,20)">＋ New task</button></div></div>${emailStatus.connected ? "" : `<div class="card" style="border-color:var(--yellow);margin-bottom:16px"><b>⚠ Email delivery requires configuration</b><p class="muted" style="margin:7px 0 0">Contact forms are saved in CRM, but SMTP must be connected before messages can reach ${escapeHtml(emailStatus.recipient)}.</p></div>`}<div class="kpis">${dashboardLayout.map((key) => cards[key])
+    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">Executive overview</span><h1>Good ${new Date().getHours() < 12 ? "morning" : "afternoon"}, ${(user.name || "").split(" ")[0]}</h1><p class="muted">Here is what is happening across your business today.</p></div><button class="btn" onclick="openModule('tasks');setTimeout(openCreate,20)">＋ New task</button></div>${emailStatus.connected ? "" : `<div class="card" style="border-color:var(--yellow);margin-bottom:16px"><b>⚠ Email delivery requires configuration</b><p class="muted" style="margin:7px 0 0">Contact forms are saved in CRM, but SMTP must be connected before messages can reach ${escapeHtml(emailStatus.recipient)}.</p></div>`}<div class="kpis">${[
+      ["Revenue", money(k.revenue), "↗ 12.4%"],
+      ["Expenses", money(k.expenses), "Current period"],
+      ["Net profit", money(k.profit), "Healthy margin"],
+      ["Outstanding", money(k.outstanding), "Invoices due"],
+      ["Active customers", k.customers, "Customer base"],
+      ["Active projects", k.projects, "In delivery"],
+      ["Employees", k.employees, "Active team"],
+      ["Due today", k.tasksToday, "Tasks requiring action"],
+    ]
       .map(
         (v) =>
           `<div class="card kpi"><div class="kpi-label">${v[0]}</div><div class="kpi-value">${v[1]}</div><div class="trend">${v[2]}</div></div>`,
@@ -488,14 +457,6 @@ async function dashboard() {
   } catch (e) {
     el.innerHTML = `<div class="empty">${e.message}</div>`;
   }
-}
-async function customizeDashboard() {
-  const labels = { revenue: "Revenue", expenses: "Expenses", profit: "Profit", outstanding: "Outstanding", customers: "Customers", projects: "Projects", employees: "Employees", tasksToday: "Due today" };
-  const answer = prompt(`Choose and order dashboard cards (comma-separated):\n${Object.entries(labels).map(([key, label]) => `${key} = ${label}`).join("\n")}`, dashboardLayout.join(","));
-  if (answer === null) return;
-  const layout = [...new Set(answer.split(",").map((key) => key.trim()).filter((key) => labels[key]))];
-  if (!layout.length) return toast("Keep at least one dashboard card");
-  try { await api("/preferences", { method: "PUT", body: JSON.stringify({ dashboard_layout: layout, theme: document.documentElement.dataset.theme || "light", locale: document.documentElement.lang || "en" }) }); dashboardLayout = layout; toast("Dashboard saved"); render(); } catch (e) { toast(e.message); }
 }
 async function specialView(kind) {
   const map = {
@@ -509,14 +470,6 @@ async function specialView(kind) {
     monitoring: monitoringView,
     backups: backupsView,
     settings: settingsView,
-    quotes: quotesView,
-    contracts: contractsView,
-    customerPortal: customerPortalView,
-    operationsSchedule: operationsScheduleView,
-    fieldService: fieldServiceView,
-    inventory: inventoryView,
-    analytics: analyticsView,
-    assistant: assistantView,
   };
   return map[kind]?.();
 }
@@ -766,7 +719,7 @@ async function backupsView() {
   const el = $("#content");
   try {
     const rows = await api("/backups");
-    el.innerHTML = `${pageHead("Backup Center", "Checksum-verified backups, AES-256-GCM offsite packages and automated restore validation.", `<button class="btn" onclick="createBackup()">＋ New backup</button>`)}<div class="card">${rows.map((b) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(b.filename)}</b><small class="muted" style="display:block">${date(b.created_at)} · ${Math.round((b.size || 0) / 1024)} KB · ${escapeHtml((b.checksum || "").slice(0, 12))}</small></div><span class="badge ${b.status}">${title(b.status)}</span>${b.status === "completed" ? `<button class="btn secondary" onclick="downloadProtected('/backups/${b.id}/download','${b.filename}')">Download</button><button class="btn secondary" onclick="encryptBackup('${b.id}')">Encrypt</button><button class="btn" onclick="testRestore('${b.id}')">Test restore</button>` : ""}</div>`).join("") || '<div class="empty">No backups yet</div>'}</div>`;
+    el.innerHTML = `${pageHead("Backup Center", "Create and retrieve checksum-verified point-in-time database backups.", `<button class="btn" onclick="createBackup()">＋ New backup</button>`)}<div class="card">${rows.map((b) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(b.filename)}</b><small class="muted" style="display:block">${date(b.created_at)} · ${Math.round((b.size || 0) / 1024)} KB · ${escapeHtml((b.checksum || "").slice(0, 12))}</small></div><span class="badge ${b.status}">${title(b.status)}</span>${b.status === "completed" ? `<button class="btn secondary" onclick="downloadProtected('/backups/${b.id}/download','${b.filename}')">Download</button>` : ""}</div>`).join("") || '<div class="empty">No backups yet</div>'}</div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -780,12 +733,6 @@ async function createBackup() {
   } catch (e) {
     toast(e.message);
   }
-}
-async function encryptBackup(id) {
-  try { const x = await api(`/backups/${id}/encrypt`, { method: "POST", body: "{}" }); toast(`Encrypted package ready (${Math.round(x.size / 1024)} KB)`); } catch (e) { toast(e.message); }
-}
-async function testRestore(id) {
-  try { const x = await api(`/backups/${id}/restore-test`, { method: "POST", body: "{}" }); toast(`Restore test ${x.status}: ${x.integrity_result || "check complete"}`); } catch (e) { toast(e.message); }
 }
 async function settingsView() {
   const el = $("#content");
@@ -820,109 +767,6 @@ async function editSetting(key) {
   } catch (e) {
     toast(e.message);
   }
-}
-async function quotesView() {
-  const el = $("#content");
-  try {
-    const x = await api("/quotes?limit=100");
-    cache.quotes = x.data;
-    el.innerHTML = `${pageHead("Quotations & e-signature", "Build itemized proposals, email secure links, track views and capture acceptance.", `<button class="btn" onclick="openQuoteBuilder()">＋ New quotation</button>`)}<div class="grid3">${x.data.map((q) => `<article class="card"><div class="card-head"><span class="badge ${q.status}">${title(q.status)}</span><b>${escapeHtml(q.number)}</b></div><h3>${escapeHtml(q.title)}</h3><div class="kpi-value">${money(q.total)}</div><p class="muted">Valid until ${date(q.valid_until) || "not set"}${q.signed_name ? ` · Signed by ${escapeHtml(q.signed_name)}` : ""}</p><div class="card-actions"><button class="btn secondary" onclick="copyPublicLink('quote','${escapeJs(q.public_token)}')">Copy link</button><button class="btn secondary" onclick="sendQuote('${q.id}')">Email</button><button class="btn" onclick="createContract('${q.id}')">Contract</button></div></article>`).join("") || '<div class="card empty">No quotations yet.</div>'}</div>`;
-  } catch (e) { el.innerHTML = errorView(e); }
-}
-async function openQuoteBuilder() {
-  try {
-    const customers = await api("/customers?limit=100");
-    document.body.insertAdjacentHTML("beforeend", `<div class="modal-backdrop" id="modal"><form class="modal wide-modal" id="quoteForm"><div class="card-head"><div><span class="eyebrow">Sales</span><h2>New quotation</h2></div><button type="button" class="icon-btn" onclick="$('#modal').remove()">×</button></div><div class="form-grid"><div class="field"><label>Customer</label><select name="customer_id" required><option value="">Select customer</option>${customers.data.map((c) => `<option value="${c.id}">${escapeHtml(c.company_name)}</option>`).join("")}</select></div><div class="field"><label>Title</label><input name="title" required value="Managed operations proposal"></div><div class="field"><label>Valid until</label><input name="valid_until" type="date"></div><div class="field"><label>VAT rate</label><input name="vat_rate" type="number" value="17" min="0" max="100"></div></div><h3>Line items</h3><div class="quote-items" id="quoteItems"><div class="quote-item"><input aria-label="Description" name="description" value="Professional staffing and site management" required><input aria-label="Quantity" name="quantity" type="number" value="1" min="0" step=".1"><input aria-label="Unit price" name="unit_price" type="number" value="12000" min="0" step=".01"></div><div class="quote-item"><input aria-label="Description" name="description" value="Monthly reporting and quality control" required><input aria-label="Quantity" name="quantity" type="number" value="1" min="0" step=".1"><input aria-label="Unit price" name="unit_price" type="number" value="2500" min="0" step=".01"></div></div><button class="btn secondary" type="button" onclick="addQuoteItem()">＋ Add item</button><div class="field"><label>Notes</label><textarea name="notes" rows="3">Generated proposal details. Replace these values before sending.</textarea></div><div class="modal-actions"><button class="btn secondary" type="button" onclick="$('#modal').remove()">Cancel</button><button class="btn">Create quotation</button></div></form></div>`);
-    $("#quoteForm").onsubmit = async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget, descriptions = $$('[name="description"]', form), quantities = $$('[name="quantity"]', form), prices = $$('[name="unit_price"]', form);
-      const payload = { customer_id: form.customer_id.value, title: form.title.value, valid_until: form.valid_until.value, vat_rate: Number(form.vat_rate.value), notes: form.notes.value, items: descriptions.map((input, index) => ({ description: input.value, quantity: Number(quantities[index].value), unit_price: Number(prices[index].value) })) };
-      try { await api("/quotes/build", { method: "POST", body: JSON.stringify(payload) }); $("#modal").remove(); toast("Quotation created"); render(); } catch (error) { toast(error.message); }
-    };
-  } catch (e) { toast(e.message); }
-}
-function addQuoteItem() {
-  $("#quoteItems").insertAdjacentHTML("beforeend", '<div class="quote-item"><input aria-label="Description" name="description" placeholder="Description" required><input aria-label="Quantity" name="quantity" type="number" value="1" min="0" step=".1"><input aria-label="Unit price" name="unit_price" type="number" value="0" min="0" step=".01"></div>');
-}
-function copyPublicLink(kind, tokenValue) {
-  const url = `${location.origin}/${kind}/${tokenValue}`;
-  navigator.clipboard?.writeText(url).then(() => toast("Secure link copied")).catch(() => prompt("Copy secure link:", url));
-}
-async function sendQuote(id) {
-  try { await api(`/quotes/${id}/send`, { method: "POST", body: "{}" }); toast("Quotation emailed"); render(); } catch (e) { toast(e.message); }
-}
-async function createContract(quoteId) {
-  try { await api("/contracts/build", { method: "POST", body: JSON.stringify({ quote_id: quoteId }) }); toast("Contract created"); openModule("contracts"); } catch (e) { toast(e.message); }
-}
-async function contractsView() {
-  const el = $("#content");
-  try {
-    const x = await api("/contracts?limit=100");
-    cache.contracts = x.data;
-    el.innerHTML = `${pageHead("Contracts", "Secure agreements, signature status and renewal dates.")}<div class="card">${x.data.map((c) => `<div class="activity-row"><div class="contract-number"><b>${escapeHtml(c.number)}</b><small class="muted">${escapeHtml(c.title)} · ${date(c.start_date)}–${date(c.end_date)}</small></div><strong>${money(c.value)}</strong><span class="badge ${c.status}">${title(c.status)}</span><button class="btn secondary" onclick="copyPublicLink('contract','${escapeJs(c.public_token)}')">Copy link</button></div>`).join("") || '<div class="empty">Create a contract from a quotation.</div>'}</div>`;
-  } catch (e) { el.innerHTML = errorView(e); }
-}
-async function customerPortalView() {
-  const el = $("#content");
-  try {
-    const customers = await api("/customers?limit=100");
-    el.innerHTML = `${pageHead("Customer Portal", "Issue expiring, revocable links for customer requests, work, quotations and billing.")}<div class="grid3">${customers.data.map((c) => `<article class="card"><span class="eyebrow">Customer workspace</span><h3>${escapeHtml(c.company_name)}</h3><p class="muted">${escapeHtml(c.contact_name || "")} · ${escapeHtml(c.email || "")}</p><button class="btn" onclick="createPortalAccess('${c.id}')">Create 30-day access link</button></article>`).join("")}</div>`;
-  } catch (e) { el.innerHTML = errorView(e); }
-}
-async function createPortalAccess(customerId) {
-  try { const x = await api("/customer-portal/access", { method: "POST", body: JSON.stringify({ customer_id: customerId }) }); navigator.clipboard?.writeText(x.url); prompt("Customer portal link (copied):", x.url); } catch (e) { toast(e.message); }
-}
-async function operationsScheduleView() {
-  const el = $("#content");
-  try {
-    const x = await api("/operations/schedule");
-    el.innerHTML = `${pageHead("Resource Schedule", `${date(x.from)}–${date(x.to)} · shifts and field work in one operational timeline.`, `<button class="btn" onclick="openModule('shifts');setTimeout(openCreate,20)">＋ New shift</button>`)}${x.conflicts.length ? `<div class="risk-banner">⚠ ${x.conflicts.length} scheduling conflict(s) require attention.</div>` : ""}<div class="dashboard-grid"><section class="card"><h3>Shifts</h3>${x.shifts.map((s) => `<div class="schedule-row"><div class="schedule-date"><b>${new Date(s.start_at).getDate()}</b><small>${new Date(s.start_at).toLocaleString([], { month: "short" })}</small></div><div><b>${escapeHtml(s.title)}</b><small>${escapeHtml(s.employee)} · ${escapeHtml(s.customer || s.location || "")}</small></div><span class="badge ${s.status}">${title(s.status)}</span></div>`).join("") || '<p class="muted">No shifts in this period.</p>'}</section><section class="card"><h3>Work orders</h3>${x.workOrders.map((w) => `<div class="schedule-row"><div class="schedule-date"><b>${new Date(w.scheduled_start).getDate()}</b><small>${new Date(w.scheduled_start).toLocaleString([], { month: "short" })}</small></div><div><b>${escapeHtml(w.number)} · ${escapeHtml(w.title)}</b><small>${escapeHtml(w.employee || "Unassigned")} · ${escapeHtml(w.customer || "")}</small></div><span class="badge ${w.status}">${title(w.status)}</span></div>`).join("") || '<p class="muted">No work orders in this period.</p>'}</section></div>`;
-  } catch (e) { el.innerHTML = errorView(e); }
-}
-async function fieldServiceView() {
-  const el = $("#content");
-  try {
-    const x = await api("/work_orders?limit=100"); cache.work_orders = x.data;
-    el.innerHTML = `${pageHead("Field Service", "Dispatch, geolocated check-in, resolution notes and customer sign-off.", `<button class="btn" onclick="openWorkOrderForm()">＋ Work order</button>`)}<div class="grid3">${x.data.map((w) => `<article class="card"><div class="card-head"><span class="badge ${w.status}">${title(w.status)}</span><b>${escapeHtml(w.number)}</b></div><h3>${escapeHtml(w.title)}</h3><p class="muted">${date(w.scheduled_start) || "Unscheduled"} · ${title(w.priority)}</p><div class="card-actions">${!w.check_in_at ? `<button class="btn" onclick="workOrderAction('${w.id}','check-in')">Check in</button>` : !w.check_out_at ? `<button class="btn" onclick="workOrderAction('${w.id}','check-out')">Complete</button>` : '<span class="trend">✓ Completed</span>'}<button class="btn secondary" onclick="openWorkOrderEdit('${w.id}')">Edit</button></div></article>`).join("") || '<div class="card empty">No work orders.</div>'}</div>`;
-  } catch (e) { el.innerHTML = errorView(e); }
-}
-function openWorkOrderForm() { current = "work_orders"; modules.work_orders.fields = ["customer_id", "project_id", "service_request_id", "asset_id", "title", "description", "priority", "status", "assigned_employee_id", "scheduled_start", "scheduled_end"]; openForm(null); }
-function openWorkOrderEdit(id) { current = "work_orders"; modules.work_orders.fields = ["number", "customer_id", "project_id", "service_request_id", "asset_id", "title", "description", "priority", "status", "assigned_employee_id", "scheduled_start", "scheduled_end"]; openForm(cache.work_orders.find((item) => item.id === id)); }
-async function workOrderAction(id, action) {
-  let coordinates = {};
-  try { coordinates = await new Promise((resolve) => navigator.geolocation ? navigator.geolocation.getCurrentPosition((p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }), () => resolve({}), { timeout: 5000 }) : resolve({})); } catch {}
-  if (action === "check-out") { const resolution = prompt("Resolution notes:"); if (!resolution) return; coordinates.resolution = resolution; coordinates.customer_signature = prompt("Customer sign-off name (optional):") || ""; }
-  try { await api(`/work-orders/${id}/${action}`, { method: "POST", body: JSON.stringify(coordinates) }); toast(action === "check-in" ? "Checked in" : "Work completed"); render(); } catch (e) { toast(e.message); }
-}
-async function inventoryView() {
-  const el = $("#content");
-  try {
-    const x = await api("/inventory_items?limit=100"); cache.inventory_items = x.data;
-    el.innerHTML = `${pageHead("Inventory", "Live stock, reorder thresholds, costs and audited movements.", `<button class="btn" onclick="current='inventory_items';openForm(null)">＋ New item</button>`)}<div class="grid3">${x.data.map((i) => `<article class="card ${Number(i.quantity) <= Number(i.reorder_level) ? "stock-low" : ""}"><div class="card-head"><span class="badge ${Number(i.quantity) <= Number(i.reorder_level) ? "overdue" : "active"}">${Number(i.quantity) <= Number(i.reorder_level) ? "Reorder" : "In stock"}</span><b>${escapeHtml(i.sku)}</b></div><h3>${escapeHtml(i.name)}</h3><div class="inventory-level"><strong>${Number(i.quantity).toLocaleString()}</strong><span>${escapeHtml(i.unit)} · minimum ${Number(i.reorder_level)}</span></div><p class="muted">${escapeHtml(i.location || "No location")} · ${money(Number(i.quantity) * Number(i.unit_cost))}</p><div class="card-actions"><button class="btn" onclick="adjustInventory('${i.id}')">Adjust</button><button class="btn secondary" onclick="current='inventory_items';openEdit('${i.id}')">Edit</button></div></article>`).join("")}</div>`;
-  } catch (e) { el.innerHTML = errorView(e); }
-}
-async function adjustInventory(id) {
-  const quantity = Number(prompt("Quantity change (use negative for stock out):", "1")); if (!quantity) return;
-  const reason = prompt("Reason:", quantity > 0 ? "Stock receipt" : "Work order usage") || "Manual adjustment";
-  try { await api(`/inventory/${id}/adjust`, { method: "POST", body: JSON.stringify({ quantity, reason }) }); toast("Inventory updated"); render(); } catch (e) { toast(e.message); }
-}
-async function analyticsView() {
-  const el = $("#content");
-  try {
-    const x = await api("/analytics/operations");
-    const metrics = [["Pipeline", money(x.sales.pipelineValue)], ["Quote value", money(x.sales.quoteValue)], ["Lead conversion", `${x.sales.conversionRate}%`], ["Open service", x.service.openRequests], ["SLA at risk", x.service.slaAtRisk], ["Work completion", `${x.service.completionRate}%`], ["Scheduled hours", x.workforce.scheduledHours], ["Low stock", x.inventory.lowStock]];
-    el.innerHTML = `${pageHead("Business Analytics", "Sales, service delivery, workforce, inventory and real-user performance.")}<div class="kpis">${metrics.map((m) => `<div class="card kpi"><span class="kpi-label">${m[0]}</span><div class="kpi-value">${m[1]}</div></div>`).join("")}</div><div class="dashboard-grid"><section class="card"><h3>Service demand · 30 days</h3>${x.trends.length ? cashChart(x.trends.map((item) => ({ month: item.day.slice(5), income: item.requests, expenses: 0 }))) : '<p class="muted">Real trend data will appear as requests arrive.</p>'}</section><section class="card"><h3>Website experience</h3>${x.experience.map((v) => `<div class="activity-row"><b>${escapeHtml(v.metric)}</b><span>${Number(v.average).toFixed(2)} · ${v.samples} samples</span></div>`).join("") || '<p class="muted">Core Web Vitals are collecting automatically.</p>'}</section></div>`;
-  } catch (e) { el.innerHTML = errorView(e); }
-}
-function assistantView() {
-  $("#content").innerHTML = `${pageHead("Business AI Assistant", "Private, auditable answers grounded in your CRM data. No customer data leaves this server.")}<div class="assistant-shell"><div class="assistant-intro"><span class="assistant-orb">✦</span><h2>What needs attention?</h2><p class="muted">Try “top sales leads”, “service priorities”, “low stock”, or ask for a business snapshot.</p><div class="assistant-prompts"><button onclick="askAssistant('Show my top sales leads')">Top leads</button><button onclick="askAssistant('Which service tickets need attention?')">Service risk</button><button onclick="askAssistant('What inventory is low?')">Low stock</button></div></div><div class="assistant-chat" id="assistantChat" aria-live="polite"></div><form class="assistant-form" id="assistantForm"><input name="prompt" class="input" required maxlength="1000" placeholder="Ask about your business…"><button class="btn">Ask</button></form></div>`;
-  $("#assistantForm").onsubmit = (event) => { event.preventDefault(); askAssistant(event.currentTarget.prompt.value); event.currentTarget.reset(); };
-}
-async function askAssistant(promptText) {
-  if (!promptText) return;
-  const chat = $("#assistantChat"); chat.insertAdjacentHTML("beforeend", `<div class="chat-message user">${escapeHtml(promptText)}</div><div class="chat-message assistant pending">Analyzing live business data…</div>`);
-  const pending = chat.lastElementChild;
-  try { const x = await api("/assistant", { method: "POST", body: JSON.stringify({ prompt: promptText }) }); pending.classList.remove("pending"); pending.innerHTML = `${escapeHtml(x.response)}<small>Sources: ${x.sources.map(title).join(", ")} · ${x.mode}</small>`; } catch (e) { pending.textContent = e.message; }
 }
 async function customer360(customerId) {
   const el = $("#content");
@@ -1231,6 +1075,7 @@ async function passkeyLogin() {
         body: JSON.stringify({ response: serializeCredential(credential) }),
       });
     token = x.token;
+    localStorage.accessToken = token;
     user = x.user;
     appView();
   } catch (e) {
@@ -1242,7 +1087,7 @@ async function passkeyLogin() {
   }
 }
 function pageHead(titleText, desc, actions = "") {
-  return `<div class="page-head"><div><span class="eyebrow">Business OS</span><h1>${escapeHtml(titleText)}</h1><p class="muted">${escapeHtml(desc)}</p></div>${actions}</div>`;
+  return `<div class="page-head"><div><span class="eyebrow">Business OS</span><h1>${titleText}</h1><p class="muted">${desc}</p></div>${actions}</div>`;
 }
 function errorView(e) {
   return `<div class="empty">${escapeHtml(e.message)}</div>`;
@@ -1336,23 +1181,9 @@ function openCreate() {
 function openEdit(id) {
   openForm((cache[current] || []).find((x) => x.id === id));
 }
-async function openForm(record) {
+function openForm(record) {
   const m = modules[current],
     fields = m.fields || [];
-  const lookupSpecs = {
-    customer_id: ["customers", "company_name"],
-    employee_id: ["employees", "full_name"],
-    assigned_employee_id: ["employees", "full_name"],
-    project_id: ["projects", "name"],
-    asset_id: ["assets", "name"],
-    service_request_id: ["service_requests", "title"],
-    work_order_id: ["work_orders", "title"],
-    lead_id: ["leads", "full_name"],
-    quote_id: ["quotes", "title"],
-  };
-  await Promise.all([...new Set(fields.filter((field) => lookupSpecs[field]).map((field) => lookupSpecs[field][0]))].map(async (resource) => {
-    if (!cache[`lookup_${resource}`]) cache[`lookup_${resource}`] = (await api(`/${resource}?limit=100`)).data;
-  }));
   document.body.insertAdjacentHTML(
     "beforeend",
     `<div class="modal-backdrop" id="modal"><form class="modal" id="recordForm"><div class="card-head"><div><span class="eyebrow">${record ? "Update" : "Create"}</span><h2>${record ? "Edit" : "New"} ${m.label.replace(/s$/, "")}</h2></div><button type="button" class="icon-btn" onclick="$('#modal').remove()">×</button></div><div class="form-grid">${fields.map((f) => inputField(f, record?.[f])).join("")}</div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">Cancel</button><button class="btn">${record ? "Save changes" : "Create record"}</button></div></form></div>`,
@@ -1382,11 +1213,6 @@ async function openForm(record) {
           "balance",
           "days",
           "active",
-          "quantity",
-          "reorder_level",
-          "unit_cost",
-          "minutes",
-          "consented",
         ].includes(k)
       )
         data[k] = Number(v || 0);
@@ -1405,13 +1231,6 @@ async function openForm(record) {
   };
 }
 function inputField(f, v = "") {
-  const lookupSpecs = {
-    customer_id: ["customers", "company_name"], employee_id: ["employees", "full_name"], assigned_employee_id: ["employees", "full_name"], project_id: ["projects", "name"], asset_id: ["assets", "name"], service_request_id: ["service_requests", "title"], work_order_id: ["work_orders", "title"], lead_id: ["leads", "full_name"], quote_id: ["quotes", "title"],
-  };
-  if (lookupSpecs[f]) {
-    const [resource, label] = lookupSpecs[f], rows = cache[`lookup_${resource}`] || [];
-    return `<div class="field"><label>${title(f)}</label><select name="${f}" ${["customer_id", "employee_id"].includes(f) ? "required" : ""}><option value="">None</option>${rows.map((row) => `<option value="${row.id}" ${String(v || "") === String(row.id) ? "selected" : ""}>${escapeHtml(row[label] || row.id)}</option>`).join("")}</select></div>`;
-  }
   const types = {
     email: "email",
     phone: "tel",
@@ -1428,14 +1247,6 @@ function inputField(f, v = "") {
     occurred_at: "datetime-local",
     start_at: "datetime-local",
     end_at: "datetime-local",
-    scheduled_start: "datetime-local",
-    scheduled_end: "datetime-local",
-    sla_due_at: "datetime-local",
-    captured_at: "datetime-local",
-    revoked_at: "datetime-local",
-    installed_at: "date",
-    warranty_until: "date",
-    next_service_at: "date",
   };
   const options = {
     status: [
@@ -1452,11 +1263,6 @@ function inputField(f, v = "") {
       "in_progress",
       "done",
       "pending",
-      "open",
-      "resolved",
-      "closed",
-      "viewed",
-      "accepted",
     ],
     stage: ["new", "qualified", "proposal", "negotiation", "won", "lost"],
     priority: ["low", "medium", "high", "urgent"],
@@ -1466,10 +1272,6 @@ function inputField(f, v = "") {
     source: ["website", "referral", "campaign", "organic", "partner"],
     currency: ["ILS", "USD", "EUR"],
     employment_type: ["full_time", "part_time", "temporary", "contract"],
-    category: ["general", "staffing", "maintenance", "cleaning", "logistics", "safety"],
-    channel: ["email", "sms", "whatsapp", "phone"],
-    language: ["he", "en", "ru"],
-    entry_type: ["work", "travel", "break", "training"],
   };
   if (f === "active")
     return `<div class="field"><label><input name="active" type="checkbox" value="1" ${Number(v) !== 0 ? "checked" : ""}> Active rule</label></div>`;
@@ -1487,16 +1289,13 @@ function inputField(f, v = "") {
       "conditions",
       "actions",
       "reason",
-      "terms",
-      "body",
-      "resolution",
     ].includes(f)
   )
     return `<div class="field" style="grid-column:1/-1"><label>${title(f)}</label><textarea name="${f}" rows="3">${escapeHtml(v || "")}</textarea></div>`;
   let value = v ?? "";
   if (types[f] === "datetime-local" && value)
     value = String(value).slice(0, 16);
-  return `<div class="field"><label>${title(f)}</label><input name="${f}" type="${types[f] || (["amount", "value", "score", "probability", "progress", "budget", "spent", "salary", "base_salary", "bonuses", "deductions", "tax", "net_salary", "subtotal", "vat_rate", "total", "balance", "days", "quantity", "reorder_level", "unit_cost", "minutes"].includes(f) ? "number" : "text")}" value="${escapeHtml(value)}" ${["company_name", "full_name", "title", "name", "number", "start_at", "end_at", "customer_id", "employee_id", "sku", "channel", "body"].includes(f) ? "required" : ""}></div>`;
+  return `<div class="field"><label>${title(f)}</label><input name="${f}" type="${types[f] || (["amount", "value", "score", "probability", "progress", "budget", "spent", "salary", "base_salary", "bonuses", "deductions", "tax", "net_salary", "subtotal", "vat_rate", "total", "balance", "days"].includes(f) ? "number" : "text")}" value="${escapeHtml(value)}" ${["company_name", "full_name", "title", "name", "number", "start_at"].includes(f) ? "required" : ""}></div>`;
 }
 async function removeRecord(id) {
   if (!confirm("Delete this record? This action is logged.")) return;
@@ -1550,28 +1349,6 @@ async function globalSearch(e) {
     box.classList.add("show");
   } catch {}
 }
-function commandShortcut(event) {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-    event.preventDefault();
-    const input = $("#globalSearch");
-    if (!input) return;
-    input.focus(); input.select();
-    const box = $("#searchResults");
-    box.innerHTML = Object.entries(modules).slice(0, 18).map(([key, module]) => `<button class="search-result command-result" onclick="openModule('${key}');$('#searchResults').classList.remove('show')"><span>${module.icon}</span><b>${escapeHtml(module.label)}</b><small>${escapeHtml(module.group)}</small></button>`).join("");
-    box.classList.add("show");
-  }
-  if (event.key === "Escape") { $("#searchResults")?.classList.remove("show"); const drawer = $("#notificationDrawer"); if (drawer) { drawer.classList.remove("open"); drawer.setAttribute("aria-hidden", "true"); } }
-}
-async function openNotificationDrawer() {
-  const drawer = $("#notificationDrawer");
-  if (!drawer) return;
-  if (drawer.classList.contains("open")) { drawer.classList.remove("open"); drawer.setAttribute("aria-hidden", "true"); return; }
-  drawer.classList.add("open"); drawer.setAttribute("aria-hidden", "false"); drawer.innerHTML = '<div class="drawer-head"><div><span class="eyebrow">Live</span><h2>Notifications</h2></div><button class="icon-btn" onclick="openNotificationDrawer()">×</button></div><div class="empty">Loading…</div>';
-  try {
-    const x = await api("/notifications?limit=30");
-    drawer.innerHTML = `<div class="drawer-head"><div><span class="eyebrow">Live</span><h2>Notifications</h2></div><button class="icon-btn" onclick="openNotificationDrawer()">×</button></div><div class="drawer-list">${x.data.map((n) => `<button class="drawer-notification ${n.read_at ? "read" : ""}" onclick="${n.read_at ? "" : `markNotificationRead('${n.id}');`}openModule('notifications');openNotificationDrawer()"><b>${escapeHtml(n.title)}</b><span>${escapeHtml(n.message || "")}</span><small>${date(n.created_at)}</small></button>`).join("") || '<div class="empty">You are all caught up.</div>'}</div>`;
-  } catch (e) { drawer.innerHTML = errorView(e); }
-}
 function openModule(k) {
   if (!modules[k]) return;
   current = k;
@@ -1592,6 +1369,7 @@ async function logout() {
     await api("/auth/logout", { method: "POST" });
   } catch {}
   notificationController?.abort();
+  localStorage.removeItem("accessToken");
   token = "";
   user = null;
   loginView();
@@ -1659,14 +1437,12 @@ async function init() {
   current =
     location.hash.slice(1) ||
     (deepModule && modules[deepModule] ? deepModule : "dashboard");
+  if (!token) return loginView();
   try {
-    if (!token) {
-      const refreshed = await api("/auth/refresh", { method: "POST" });
-      token = refreshed.token;
-      user = refreshed.user;
-    } else user = await api("/auth/me");
+    user = await api("/auth/me");
     appView();
   } catch {
+    localStorage.removeItem("accessToken");
     token = "";
     loginView();
   }

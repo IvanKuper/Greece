@@ -61,7 +61,7 @@ test("serves public jobs and CRM shell", async () => {
   assert.equal(jobs.status, 200);
   assert.ok(Array.isArray(await jobs.json()));
   assert.equal(applications.status, 200);
-  assert.match(await applications.text(), /site\.js/);
+  assert.match(await applications.text(), /index-ZcaRxVCl\.js/);
   assert.match(await crm.text(), /Greece Business Platform/);
   assert.match(await crmDeep.text(), /Greece Business Platform/);
 });
@@ -229,86 +229,6 @@ test("creates a checksum-verified backup", async () => {
   fs.rmSync(path.join(__dirname, "..", "storage", "backups", backup.filename), {
     force: true,
   });
-});
-test("builds and accepts a secure quotation", async () => {
-  const customer = db.prepare("SELECT id FROM customers LIMIT 1").get();
-  const created = await fetch(base + "/api/v1/quotes/build", {
-    method: "POST",
-    headers: json(),
-    body: JSON.stringify({
-      customer_id: customer.id,
-      title: "API quotation test",
-      items: [{ description: "Test service", quantity: 2, unit_price: 100 }],
-    }),
-  });
-  assert.equal(created.status, 201);
-  const quote = await created.json();
-  assert.equal(quote.total, 234);
-  const publicView = await fetch(
-    base + `/api/v1/public/quotes/${quote.public_token}`,
-  );
-  assert.equal(publicView.status, 200);
-  assert.equal((await publicView.json()).items.length, 1);
-  const accepted = await fetch(
-    base + `/api/v1/public/quotes/${quote.public_token}/accept`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ signed_name: "API Customer", accept_terms: true }),
-    },
-  );
-  assert.equal(accepted.status, 200);
-  assert.equal(
-    db.prepare("SELECT status FROM quotes WHERE id=?").get(quote.id).status,
-    "accepted",
-  );
-  db.prepare("DELETE FROM quotes WHERE id=?").run(quote.id);
-});
-test("issues customer portal access and creates a service request", async () => {
-  const customer = db.prepare("SELECT id FROM customers LIMIT 1").get();
-  const access = await fetch(base + "/api/v1/customer-portal/access", {
-    method: "POST",
-    headers: json(),
-    body: JSON.stringify({ customer_id: customer.id }),
-  });
-  assert.equal(access.status, 201);
-  const accessData = await access.json();
-  const portalUrl = new URL(accessData.url);
-  const tokenValue = portalUrl.pathname.split("/").pop();
-  const portal = await fetch(base + `/api/v1/public/portal/${tokenValue}`);
-  assert.equal(portal.status, 200);
-  const request = await fetch(
-    base + `/api/v1/public/portal/${tokenValue}/requests`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "API portal request", priority: "high" }),
-    },
-  );
-  assert.equal(request.status, 201);
-  const requestData = await request.json();
-  assert.match(requestData.number, /^SR-/);
-  db.prepare("DELETE FROM service_requests WHERE id=?").run(requestData.id);
-  db.prepare("DELETE FROM customer_portal_tokens WHERE customer_id=?").run(
-    customer.id,
-  );
-});
-test("serves operations analytics and grounded assistant answers", async () => {
-  const analytics = await fetch(base + "/api/v1/analytics/operations", {
-      headers: auth(),
-    }),
-    assistant = await fetch(base + "/api/v1/assistant", {
-      method: "POST",
-      headers: json(),
-      body: JSON.stringify({ prompt: "What inventory is low?" }),
-    });
-  assert.equal(analytics.status, 200);
-  assert.equal(typeof (await analytics.json()).service.openRequests, "number");
-  assert.equal(assistant.status, 200);
-  const answer = await assistant.json();
-  assert.equal(answer.mode, "local");
-  assert.ok(answer.sources.includes("inventory_items"));
-  db.prepare("DELETE FROM ai_assistant_runs WHERE id=?").run(answer.runId);
 });
 test("creates WebAuthn registration options", async () => {
   const r = await fetch(base + "/api/v1/auth/passkeys/register/options", {

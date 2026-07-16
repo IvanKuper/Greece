@@ -2,7 +2,5 @@ node_modules/
 storage/
 data.json
 .env
-storage/.runtime-secrets.json
-storage/offsite/
 .DS_Store
 *.log

@@ -1,7 +1,6 @@
 const puppeteer = require("puppeteer-core");
 const { AxePuppeteer } = require("@axe-core/puppeteer");
 const assert = require("node:assert/strict");
-const crypto = require("node:crypto");
 const { db } = require("../src/db");
 const base = process.env.E2E_BASE_URL || "http://localhost:3000";
 const clickText = (page, selector, text) =>
@@ -16,7 +15,6 @@ const clickText = (page, selector, text) =>
     selector,
     text,
   );
-let portalTestId;
 (async () => {
   const browser = await puppeteer.launch({
     executablePath:
@@ -30,7 +28,7 @@ let portalTestId;
       errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(base + "/", { waitUntil: "networkidle0" });
-    await page.waitForSelector("#contact-form");
+    await page.waitForSelector("#stable-contact-form");
     assert.ok(await page.$(".skip-link"));
     assert.ok(await page.$('#main-content[role="main"],main#main-content'));
     const publicA11y = await new AxePuppeteer(page).analyze();
@@ -39,12 +37,21 @@ let portalTestId;
       0,
       "Public page has critical accessibility violations",
     );
-    await page.type("#contact-name", "E2E Contact");
-    await page.type("#contact-phone", "0500009999");
-    await page.type("#contact-email", "e2e-contact@example.com");
-    await page.type("#contact-company", "E2E Ltd");
-    await page.type("#contact-message", "Automated contact flow test");
-    await page.click('#contact-form button[type="submit"]');
+    await page.click('[data-service="staffing"]');
+    await page.click('#stable-contact-form button[type="submit"]');
+    await page.type('[data-contact-field="location"]', "Tel Aviv");
+    await page.type('[data-contact-field="workers"]', "4");
+    await page.type(
+      '[data-contact-field="message"]',
+      "Automated contact flow test",
+    );
+    await page.click('#stable-contact-form button[type="submit"]');
+    await page.type('[data-contact-field="full_name"]', "E2E Contact");
+    await page.type('[data-contact-field="phone"]', "0500009999");
+    await page.type('[data-contact-field="email"]', "e2e-contact@example.com");
+    await page.type('[data-contact-field="company"]', "E2E Ltd");
+    await page.click('#stable-contact-form button[type="submit"]');
+    await page.click('#stable-contact-form button[type="submit"]');
     await page.waitForFunction(() =>
       document
         .querySelector("#contact")
@@ -57,14 +64,22 @@ let portalTestId;
       "Contact was not saved",
     );
     assert.deepEqual(errors, [], "Contact flow emitted browser errors");
-    console.log("✓ Contact form, accessibility baseline, CRM capture, and email path");
+    console.log(
+      "✓ Four-step contact flow, accessibility baseline, and CRM capture",
+    );
     await page.goto(base + "/", { waitUntil: "networkidle0" });
-    await page.click("[data-apply-job]");
-    await page.type("#application-name", "E2E Applicant");
-    await page.type("#application-phone", "0500008888");
-    await page.type("#application-email", "e2e-applicant@example.com");
-    await page.type("#application-experience", "Automated application flow test");
-    await page.click('#application-form button[type="submit"]');
+    await clickText(page, "#jobs button", "הגש מועמדות");
+    await page.type('input[placeholder="הכניסו את שמכם"]', "E2E Applicant");
+    await page.type('input[placeholder="050-0000000"]', "0500008888");
+    await page.type(
+      'input[placeholder="email@example.com"]',
+      "e2e-applicant@example.com",
+    );
+    await page.type(
+      'textarea[placeholder="ספרו לנו קצת על עצמכם"]',
+      "Automated application flow test",
+    );
+    await clickText(page, "button", "שלח מועמדות");
     await page.waitForFunction(() =>
       document.body.textContent.includes("המועמדות נשלחה בהצלחה"),
     );
@@ -97,32 +112,18 @@ let portalTestId;
       await p.close();
     }
     console.log("✓ Public routes and CRM login render without runtime errors");
-    const quote = db.prepare("SELECT public_token FROM quotes LIMIT 1").get(),
-      contract = db.prepare("SELECT public_token FROM contracts LIMIT 1").get(),
-      customer = db.prepare("SELECT id FROM customers LIMIT 1").get(),
-      portalToken = crypto.randomBytes(32).toString("base64url");
-    portalTestId = crypto.randomUUID();
-    db.prepare("INSERT INTO customer_portal_tokens(id,customer_id,token_hash,label,expires_at,created_at) VALUES(?,?,?,?,?,?)").run(portalTestId, customer.id, crypto.createHash("sha256").update(portalToken).digest("hex"), "E2E", new Date(Date.now() + 3600000).toISOString(), new Date().toISOString());
-    for (const [route, expected] of [[`/quote/${quote.public_token}`, "SECURE QUOTATION"], [`/contract/${contract.public_token}`, "SECURE CONTRACT"], [`/portal/${portalToken}`, "CUSTOMER PORTAL"]]) {
-      const securePage = await browser.newPage(), secureErrors = [];
-      securePage.on("pageerror", (error) => secureErrors.push(error.message));
-      await securePage.goto(base + route, { waitUntil: "networkidle0" });
-      assert.ok((await securePage.$eval("body", (element) => element.innerText)).includes(expected), `${route} did not render`);
-      assert.deepEqual(secureErrors, [], `${route} emitted browser errors`);
-      await securePage.close();
-    }
-    console.log("✓ Secure quotation, contract, and customer portal render correctly");
     const navigationPage = await browser.newPage();
-    await navigationPage.setViewport({ width: 1440, height: 900 });
     await navigationPage.goto(base + "/process", { waitUntil: "networkidle0" });
-    await navigationPage.waitForSelector('.main-nav a[href="/about"]');
-    await navigationPage.click('.main-nav a[href="/about"]');
+    await navigationPage.waitForSelector('a[href="/about"]');
+    await navigationPage.click('a[href="/about"]');
     await navigationPage.waitForFunction(() => location.pathname === "/about");
     assert.equal(await navigationPage.evaluate(() => location.hash), "");
     await navigationPage.goto(base + "/process#about", {
       waitUntil: "networkidle0",
     });
-    await navigationPage.waitForFunction(() => location.pathname === "/about" && !location.hash);
+    await navigationPage.waitForFunction(
+      () => location.pathname === "/about" && !location.hash,
+    );
     const normalizedLinks = await navigationPage.$$eval(
       'a[href="/"],a[href^="/#"],a[href="/about"],a[href="/contact"]',
       (links) => links.map((link) => link.getAttribute("href")),
@@ -165,12 +166,6 @@ let portalTestId;
       await crmPage.evaluate(() => typeof registerPasskey),
       "function",
     );
-    await crmPage.click('[data-module="quotes"]');
-    await crmPage.waitForFunction(() => document.body.textContent.includes("Quotations & e-signature"));
-    await crmPage.click('[data-module="analytics"]');
-    await crmPage.waitForFunction(() => document.body.textContent.includes("Business Analytics"));
-    await crmPage.click('[data-module="assistant"]');
-    await crmPage.waitForFunction(() => document.body.textContent.includes("Business AI Assistant"));
     const crmA11y = await new AxePuppeteer(crmPage).analyze();
     assert.equal(
       crmA11y.violations.filter((v) => v.impact === "critical").length,
@@ -184,7 +179,7 @@ let portalTestId;
     );
     const deepCrmPage = await browser.newPage();
     await deepCrmPage.goto(base + "/crm/customers", {
-      waitUntil: "domcontentloaded",
+      waitUntil: "networkidle0",
     });
     await deepCrmPage.waitForFunction(
       () =>
@@ -208,7 +203,7 @@ let portalTestId;
       "body",
       (e) => getComputedStyle(e).backgroundColor,
     );
-    await themePage.click('button[data-action="theme"]');
+    await themePage.click('button[aria-label="Toggle theme"]');
     await new Promise((r) => setTimeout(r, 450));
     const light = await themePage.$eval(
       "body",
@@ -216,11 +211,13 @@ let portalTestId;
     );
     assert.notEqual(light, dark);
     assert.equal(
-      await themePage.evaluate(() => document.documentElement.dataset.theme === "light"),
+      await themePage.evaluate(() =>
+        document.documentElement.classList.contains("light"),
+      ),
       true,
     );
     await themePage.setViewport({ width: 390, height: 844 });
-    assert.ok(await themePage.$('button[data-action="theme"]'));
+    assert.ok(await themePage.$('button[aria-label="Toggle theme"]'));
     await themePage.close();
     console.log(
       "✓ Dark/light theme visibly changes and remains usable on mobile",
@@ -230,8 +227,6 @@ let portalTestId;
     db.prepare(
       "DELETE FROM job_applications WHERE email='e2e-applicant@example.com'",
     ).run();
-    if (portalTestId)
-      db.prepare("DELETE FROM customer_portal_tokens WHERE id=?").run(portalTestId);
     await browser.close();
   }
 })().catch((e) => {

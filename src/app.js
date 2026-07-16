@@ -10,40 +10,29 @@ const { authRoutes } = require("./auth");
 const { apiRoutes } = require("./api");
 const mailer = require("./mailer");
 const { businessOSRoutes } = require("./business-os");
-const { growthPlatformRoutes } = require("./growth-platform");
 const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "https://media.base44.com",
+          "https://images.unsplash.com",
+        ],
+        connectSrc: ["'self'"],
+      },
+    },
   }),
 );
-app.use((req, res, next) => {
-  const crm = req.path === "/crm" || req.path.startsWith("/crm/");
-  const directives = [
-    "default-src 'self'",
-    `script-src 'self'${crm ? " 'unsafe-inline'" : ""}`,
-    `script-src-attr ${crm ? "'unsafe-inline'" : "'none'"}`,
-    `style-src 'self' https://fonts.googleapis.com${crm ? " 'unsafe-inline'" : ""}`,
-    `style-src-attr ${crm ? "'unsafe-inline'" : "'none'"}`,
-    "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: blob: https://media.base44.com https://images.unsplash.com",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "frame-ancestors 'none'",
-    "form-action 'self'",
-    "worker-src 'self'",
-    "manifest-src 'self'",
-  ];
-  res.setHeader("Content-Security-Policy", directives.join("; "));
-  res.setHeader(
-    "Permissions-Policy",
-    "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)",
-  );
-  next();
-});
 app.use(compression());
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: false, limit: "15mb" }));
@@ -59,41 +48,14 @@ const loginLimiter = rateLimit({
   limit: 12,
   skipSuccessfulRequests: true,
 });
-const publicFormLimiter = rateLimit({
-  windowMs: 15 * 60000,
-  limit: 20,
-  standardHeaders: "draft-8",
-  legacyHeaders: false,
-  message: { error: { message: "Too many requests. Please try again later." } },
-});
 app.use("/api", limiter);
 app.use((req, res, next) => {
-  const requestId = crypto.randomUUID(), startedAt = process.hrtime.bigint();
-  res.setHeader("X-Request-Id", requestId);
-  res.on("finish", () => {
-    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
-    if (durationMs > 2000 || res.statusCode >= 500) {
-      try {
-        db.prepare(
-          "INSERT INTO monitoring_events(id,level,source,event_type,message,metadata,created_at) VALUES(?,?,?,?,?,?,?)",
-        ).run(
-          id(),
-          res.statusCode >= 500 ? "error" : "warning",
-          "http",
-          res.statusCode >= 500 ? "request_failed" : "slow_request",
-          `${req.method} ${req.path} completed with ${res.statusCode}`,
-          JSON.stringify({ request_id: requestId, duration_ms: Math.round(durationMs) }),
-          now(),
-        );
-      } catch {}
-    }
-  });
+  res.setHeader("X-Request-Id", crypto.randomUUID());
   next();
 });
 authRoutes(app, loginLimiter);
 apiRoutes(app);
 businessOSRoutes(app);
-growthPlatformRoutes(app, publicFormLimiter);
 app.get("/api/health", (req, res) => {
   try {
     db.prepare("SELECT 1").get();
@@ -107,24 +69,18 @@ app.get("/api/health", (req, res) => {
     res.status(503).json({ status: "unhealthy" });
   }
 });
-app.post("/api/v1/public/leads", publicFormLimiter, async (req, res) => {
-  if (req.body.website) return res.status(201).json({ ok: true });
-  const fullName = String(req.body.full_name || "").trim();
-  const phone = String(req.body.phone || "").trim();
-  const emailAddress = String(req.body.email || "").trim();
-  if (fullName.length < 2 || !/^[+\d][\d\s().-]{6,38}$/.test(phone))
+app.post("/api/v1/public/leads", async (req, res) => {
+  if (!req.body.full_name || !req.body.phone)
     return res
       .status(400)
-      .json({ error: { message: "A valid name and phone are required" } });
-  if (emailAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAddress))
-    return res.status(400).json({ error: { message: "Email is invalid" } });
+      .json({ error: { message: "Name and phone are required" } });
   const ts = now(),
     x = {
       id: id(),
-      full_name: fullName.slice(0, 120),
-      company: String(req.body.company || "").trim().slice(0, 160),
-      email: emailAddress.slice(0, 180),
-      phone: phone.slice(0, 40),
+      full_name: String(req.body.full_name).slice(0, 120),
+      company: String(req.body.company || ""),
+      email: String(req.body.email || ""),
+      phone: String(req.body.phone).slice(0, 40),
       source: "website",
       score: 20,
       stage: "new",
@@ -145,26 +101,20 @@ app.post("/api/v1/public/leads", publicFormLimiter, async (req, res) => {
   }
   res.status(201).json({ id: x.id, ok: true, emailSent: email.sent });
 });
-app.post("/api/v1/public/applications", publicFormLimiter, async (req, res) => {
-  if (req.body.website) return res.status(201).json({ ok: true });
-  const fullName = String(req.body.full_name || "").trim();
-  const phone = String(req.body.phone || "").trim();
-  const emailAddress = String(req.body.email || "").trim();
-  if (fullName.length < 2 || !/^[+\d][\d\s().-]{6,38}$/.test(phone))
+app.post("/api/v1/public/applications", async (req, res) => {
+  if (!req.body.full_name || !req.body.phone)
     return res
       .status(400)
-      .json({ error: { message: "A valid name and phone are required" } });
-  if (emailAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAddress))
-    return res.status(400).json({ error: { message: "Email is invalid" } });
+      .json({ error: { message: "Name and phone are required" } });
   const ts = now(),
     x = {
       id: id(),
       job_id: req.body.job_id || null,
       job_title: req.body.job_title || "",
-      full_name: fullName.slice(0, 120),
-      email: emailAddress.slice(0, 180),
-      phone: phone.slice(0, 40),
-      experience: String(req.body.experience || "").slice(0, 2500),
+      full_name: req.body.full_name,
+      email: req.body.email || "",
+      phone: req.body.phone,
+      experience: req.body.experience || "",
       status: "pending",
       created_at: ts,
       updated_at: ts,
@@ -294,21 +244,14 @@ app.post(
     }
   },
 );
-app.use("/api", (req, res) =>
-  res.status(404).json({ error: { code: "NOT_FOUND", message: "API endpoint not found" } }),
-);
 app.get("/manifest.json", (req, res) =>
   res.json({
-    id: "/",
-    name: "GRIS Maintenance & Staffing",
+    name: "GRIS",
     short_name: "GRIS",
     start_url: "/",
-    scope: "/",
     display: "standalone",
     background_color: "#0B0E12",
     theme_color: "#C88A58",
-    description: "Staffing, maintenance, cleaning and logistics services.",
-    icons: [{ src: "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
   }),
 );
 app.get("/static/js/badge.js", (req, res) => res.type("js").send(""));
