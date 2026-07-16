@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm test
+      - uses: browser-actions/setup-chrome@v1
+      - name: Browser end-to-end tests
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+          NODE_ENV: test
+          JWT_SECRET: ci-access-secret-not-for-production
+          JWT_REFRESH_SECRET: ci-refresh-secret-not-for-production
+        run: |
+          npm run dev > /tmp/greece-server.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:3000/api/health && break; sleep 1; done
+          npm run test:e2e
