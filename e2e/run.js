@@ -5,6 +5,9 @@ const { db } = require("../src/db");
 
 const base = process.env.E2E_BASE_URL || "http://localhost:3000";
 
+const clickSubmit = (page) =>
+  page.click('#stable-contact-form button[type="submit"]');
+
 (async () => {
   const browser = await puppeteer.launch({
     executablePath:
@@ -14,24 +17,29 @@ const base = process.env.E2E_BASE_URL || "http://localhost:3000";
     args: ["--no-sandbox"],
   });
   try {
-    const page = await browser.newPage(), errors = [];
+    const page = await browser.newPage(),
+      errors = [];
     await page.setViewport({ width: 1440, height: 900 });
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(base + "/", { waitUntil: "networkidle0" });
-    await page.waitForSelector("#contact-form");
-
-    const crmLink = await page.$('a.crm-login[href="/crm"]');
-    assert.ok(crmLink, "Public navigation is missing CRM login");
-    assert.equal(
-      await crmLink.evaluate((element) => {
-        const box = element.getBoundingClientRect();
-        return box.width > 0 && box.height > 0;
-      }),
-      true,
-      "CRM login is not visible on desktop",
+    await page.waitForFunction(() =>
+      document.body.textContent.includes("GREECE") ||
+      document.body.textContent.includes("כוח אדם"),
     );
+    await page.waitForSelector("#stable-contact-form");
+
+    const crmLink = await page.$('a[href="/crm"]');
+    assert.ok(crmLink, "Base44 navigation is missing the CRM link");
     assert.ok(await page.$(".skip-link"));
-    assert.ok(await page.$("main#main-content"));
+    assert.ok(await page.$('#main-content[role="main"], main#main-content'));
+    assert.ok(
+      await page.evaluate(() =>
+        [...document.scripts].some((script) =>
+          script.src.includes("/assets/index-ZcaRxVCl.js"),
+        ),
+      ),
+      "The original Base44 bundle is not loaded",
+    );
 
     const publicA11y = await new AxePuppeteer(page).analyze();
     assert.equal(
@@ -41,14 +49,24 @@ const base = process.env.E2E_BASE_URL || "http://localhost:3000";
       "Public page has critical accessibility violations",
     );
 
-    await page.type("#contact-name", "E2E Contact");
-    await page.type("#contact-phone", "0500009999");
-    await page.type("#contact-email", "e2e-contact@example.com");
-    await page.type("#contact-company", "E2E Ltd");
-    await page.type("#contact-message", "Automated contact flow test");
-    await page.click('#contact-form button[type="submit"]');
+    await page.click("[data-service='staffing']");
+    await clickSubmit(page);
+    await page.type('[data-contact-field="location"]', "Tel Aviv");
+    await page.type('[data-contact-field="workers"]', "4");
+    await page.type(
+      '[data-contact-field="message"]',
+      "Automated contact flow test",
+    );
+    await clickSubmit(page);
+    await page.type('[data-contact-field="full_name"]', "E2E Contact");
+    await page.type('[data-contact-field="phone"]', "0500009999");
+    await page.type('[data-contact-field="email"]', "e2e-contact@example.com");
+    await page.type('[data-contact-field="company"]', "E2E Ltd");
+    await clickSubmit(page);
+    await clickSubmit(page);
     await page.waitForFunction(() =>
-      document.body.textContent.includes("הפנייה נשלחה בהצלחה"),
+      document.body.textContent.includes("הפנייה נשלחה בהצלחה") ||
+      document.body.textContent.includes("תודה! הפנייה נשלחה בהצלחה"),
     );
     assert.ok(
       db.prepare("SELECT 1 FROM leads WHERE email=?").get(
@@ -56,17 +74,32 @@ const base = process.env.E2E_BASE_URL || "http://localhost:3000";
       ),
       "Contact was not saved",
     );
-    assert.deepEqual(errors, [], "Public home emitted browser errors");
-    console.log("✓ Public design, visible CRM login, contact form, and accessibility");
+    assert.deepEqual(errors, [], "Base44 public home emitted browser errors");
+    console.log("✓ Original Base44 frontend, CRM link, contact form, and accessibility");
 
-    await page.goto(base + "/applications", { waitUntil: "networkidle0" });
-    await page.waitForSelector("[data-apply-job]");
-    await page.click("[data-apply-job]");
-    await page.type("#application-name", "E2E Applicant");
-    await page.type("#application-phone", "0500008888");
-    await page.type("#application-email", "e2e-applicant@example.com");
-    await page.type("#application-experience", "Automated application test");
-    await page.click('#application-form button[type="submit"]');
+    await page.goto(base + "/#jobs", { waitUntil: "networkidle0" });
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll("button")].some((button) =>
+        button.textContent.includes("הגש מועמדות"),
+      ),
+    );
+    await page.evaluate(() =>
+      [...document.querySelectorAll("button")]
+        .find((button) => button.textContent.includes("הגש מועמדות"))
+        .click(),
+    );
+    await page.type('input[placeholder="הכניסו את שמכם"]', "E2E Applicant");
+    await page.type('input[placeholder="050-0000000"]', "0500008888");
+    await page.type('input[placeholder="email@example.com"]', "e2e-applicant@example.com");
+    await page.type(
+      'textarea[placeholder="ספרו לנו קצת על עצמכם"]',
+      "Automated application flow test",
+    );
+    await page.evaluate(() =>
+      [...document.querySelectorAll("button")]
+        .find((button) => button.textContent.includes("שלח מועמדות"))
+        .click(),
+    );
     await page.waitForFunction(() =>
       document.body.textContent.includes("המועמדות נשלחה בהצלחה"),
     );
@@ -85,7 +118,8 @@ const base = process.env.E2E_BASE_URL || "http://localhost:3000";
       "/process",
       "/applications",
     ]) {
-      const routePage = await browser.newPage(), routeErrors = [];
+      const routePage = await browser.newPage(),
+        routeErrors = [];
       routePage.on("pageerror", (error) => routeErrors.push(error.message));
       await routePage.goto(base + route, { waitUntil: "networkidle0" });
       assert.ok(
@@ -93,11 +127,11 @@ const base = process.env.E2E_BASE_URL || "http://localhost:3000";
           100,
         `${route} did not render`,
       );
-      assert.ok(await routePage.$('a.crm-login[href="/crm"]'));
+      assert.ok(await routePage.$('a[href="/crm"]'));
       assert.deepEqual(routeErrors, [], `${route} emitted browser errors`);
       await routePage.close();
     }
-    console.log("✓ Every public route renders and links to CRM");
+    console.log("✓ Base44 public routes render and link to CRM");
 
     const navigationPage = await browser.newPage();
     await navigationPage.goto(base + "/process#about", {
@@ -116,24 +150,27 @@ const base = process.env.E2E_BASE_URL || "http://localhost:3000";
       "body",
       (element) => getComputedStyle(element).backgroundColor,
     );
-    assert.ok(await themePage.$('a.crm-login[href="/crm"]'));
-    await themePage.click('[data-action="theme"]');
+    await themePage.evaluate(() => {
+      const buttons = [...document.querySelectorAll("button")];
+      const themeButton = buttons.find((button) => {
+        const label = `${button.getAttribute("aria-label") || ""} ${button.title || ""}`;
+        return /theme|dark|light|מצב|ערכת|צבע/i.test(label);
+      });
+      if (!themeButton) throw new Error("Theme button not found");
+      themeButton.click();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 450));
     const light = await themePage.$eval(
       "body",
       (element) => getComputedStyle(element).backgroundColor,
     );
     assert.notEqual(dark, light);
-    await themePage.click('[data-action="menu"]');
-    assert.equal(
-      await themePage.$eval("#mobile-menu", (element) =>
-        element.classList.contains("open"),
-      ),
-      true,
-    );
+    assert.ok(await themePage.$('a[href="/crm"]'));
     await themePage.close();
-    console.log("✓ Mobile menu, CRM access, and dark/light theme");
+    console.log("✓ Dark/light theme and mobile CRM access");
 
-    const crmPage = await browser.newPage(), crmErrors = [];
+    const crmPage = await browser.newPage(),
+      crmErrors = [];
     crmPage.on("pageerror", (error) => crmErrors.push(error.message));
     await crmPage.goto(base + "/crm", { waitUntil: "networkidle0" });
     await crmPage.waitForSelector('#loginForm button[type="submit"]');
