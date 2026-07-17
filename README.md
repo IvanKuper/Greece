@@ -13,14 +13,7 @@ npm run dev
 - Business platform: http://localhost:3000/crm
 - API base: http://localhost:3000/api/v1
 
-Demo administrator:
-
-```text
-admin@greece.co.il
-Admin123!
-```
-
-Change this password before using real data.
+For a new database, set `INITIAL_ADMIN_EMAIL` and a unique `INITIAL_ADMIN_PASSWORD` (12+ characters) in `.env` before the first start. The application never creates a production administrator with a known default password.
 
 ## Architecture
 

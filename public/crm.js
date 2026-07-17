@@ -360,8 +360,9 @@ async function api(url, opt = {}) {
 function loginView() {
   document.body.className = "";
   $("#app").innerHTML =
-    `<div class="login"><div class="login-art"><div class="brand"><span class="brand-mark">G</span> GREECE LTD</div><h1>One platform.<br><span style="color:var(--primary2)">Total business clarity.</span></h1><p style="color:#98a4b8;max-width:560px;font-size:17px;line-height:1.7">Customers, sales, finance, people and projects—securely connected in one operating system.</p></div><div class="login-panel"><form class="login-box" id="loginForm"><span class="eyebrow">Secure workspace</span><h1 style="font-size:34px;margin:12px 0 8px">Welcome back</h1><p class="muted">Sign in to Greece Business Platform</p><div class="field"><label>Email</label><input name="email" type="email" autocomplete="username" value="admin@greece.co.il" required></div><div class="field"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div><label style="display:flex;gap:8px;align-items:center;margin:15px 0"><input name="rememberMe" type="checkbox" checked> Remember this device</label><button type="submit" class="btn" style="width:100%;padding:13px">Sign in securely</button><button type="button" class="btn secondary" style="width:100%;margin-top:9px" onclick="passkeyLogin()">Sign in with a passkey</button><button type="button" class="btn secondary" style="width:100%;margin-top:9px" onclick="forgotPassword()">Forgot password</button></form></div></div>`;
+    `<div class="login"><div class="login-art"><div class="brand"><span class="brand-mark">G</span> GREECE LTD</div><h1>One platform.<br><span style="color:var(--primary2)">Total business clarity.</span></h1><p style="color:#98a4b8;max-width:560px;font-size:17px;line-height:1.7">Customers, sales, finance, people and projects—securely connected in one operating system.</p></div><div class="login-panel"><form class="login-box" id="loginForm"><span class="eyebrow">Secure workspace</span><h1 style="font-size:34px;margin:12px 0 8px">Welcome back</h1><p class="muted">Sign in to Greece Business Platform</p><div class="field"><label>Email</label><input name="email" type="email" autocomplete="username" required></div><div class="field"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div><label style="display:flex;gap:8px;align-items:center;margin:15px 0"><input name="rememberMe" type="checkbox" checked> Remember this device</label><button type="submit" class="btn" style="width:100%;padding:13px">Sign in securely</button><button type="button" class="btn secondary" style="width:100%;margin-top:9px" onclick="passkeyLogin()">Sign in with a passkey</button><button type="button" class="btn secondary" style="width:100%;margin-top:9px" onclick="forgotPassword()">Forgot password</button></form></div></div>`;
   $("#loginForm").onsubmit = login;
+  handlePasswordResetLink();
 }
 async function login(e) {
   e.preventDefault();
@@ -382,7 +383,7 @@ async function login(e) {
   }
 }
 async function forgotPassword() {
-  const email = prompt("Enter your account email:", "admin@greece.co.il");
+  const email = prompt("Enter your account email:");
   if (!email) return;
   const x = await api("/auth/password/forgot", {
     method: "POST",
@@ -393,6 +394,24 @@ async function forgotPassword() {
       ? "Development reset token created"
       : "If the account exists, reset instructions were sent",
   );
+}
+async function handlePasswordResetLink() {
+  const resetToken = new URLSearchParams(location.hash.slice(1)).get("reset");
+  if (!resetToken) return;
+  history.replaceState(null, "", "/crm");
+  const password = prompt("Choose a new password (at least 10 characters):");
+  if (!password) return;
+  const confirmation = prompt("Repeat your new password:");
+  if (password !== confirmation) return toast("Passwords do not match");
+  try {
+    await api("/auth/password/reset", {
+      method: "POST",
+      body: JSON.stringify({ token: resetToken, password }),
+    });
+    toast("Password updated. You can now sign in.");
+  } catch (error) {
+    toast(error.message);
+  }
 }
 function sidebar() {
   const groups = {};

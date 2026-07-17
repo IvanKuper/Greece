@@ -2,6 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const app = require("../src/app");
 const { db } = require("../src/db");
 let server, base, token, adminId, sessionId;
@@ -52,6 +54,108 @@ test("supports paginated CRM search", async () => {
   assert.equal(r.status, 200);
   assert.ok(x.data.some((c) => c.company_name === "Alpha Industries"));
   assert.equal(x.pagination.page, 1);
+});
+test("keeps global search and exports within role permissions", async () => {
+  const roleName = `limited-${crypto.randomUUID()}`,
+    userId = crypto.randomUUID(),
+    email = `limited-${crypto.randomUUID()}@example.com`,
+    created = new Date().toISOString();
+  db.prepare("INSERT INTO roles(name,permissions) VALUES(?,?)").run(
+    roleName,
+    JSON.stringify(["dashboard.read", "crm.read"]),
+  );
+  const role = db.prepare("SELECT id FROM roles WHERE name=?").get(roleName);
+  db.prepare(
+    "INSERT INTO users VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+  ).run(
+    userId,
+    "Limited User",
+    email,
+    bcrypt.hashSync("A-unique-test-password", 10),
+    role.id,
+    1,
+    0,
+    null,
+    0,
+    null,
+    created,
+    created,
+  );
+  try {
+    const login = await fetch(base + "/api/v1/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password: "A-unique-test-password" }),
+    });
+    const limitedToken = (await login.json()).token,
+      headers = { authorization: "Bearer " + limitedToken },
+      search = await fetch(base + "/api/v1/search?q=INV-1001", { headers }),
+      blockedExport = await fetch(base + "/api/v1/export/invoices.csv", {
+        headers,
+      }),
+      allowedExport = await fetch(base + "/api/v1/export/customers.csv", {
+        headers,
+      });
+    assert.equal(login.status, 200);
+    assert.deepEqual(await search.json(), []);
+    assert.equal(blockedExport.status, 403);
+    assert.equal(allowedExport.status, 200);
+  } finally {
+    db.prepare("DELETE FROM login_history WHERE user_id=?").run(userId);
+    db.prepare("DELETE FROM users WHERE id=?").run(userId);
+    db.prepare("DELETE FROM roles WHERE name=?").run(roleName);
+  }
+});
+test("issues a one-time password reset token in development", async () => {
+  const userId = crypto.randomUUID(),
+    email = `reset-${crypto.randomUUID()}@example.com`,
+    created = new Date().toISOString(),
+    role = db.prepare("SELECT id FROM roles WHERE name='employee'").get();
+  db.prepare(
+    "INSERT INTO users VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+  ).run(
+    userId,
+    "Reset Test",
+    email,
+    bcrypt.hashSync("A-unique-test-password", 10),
+    role.id,
+    1,
+    0,
+    null,
+    0,
+    null,
+    created,
+    created,
+  );
+  try {
+    const forgot = await fetch(base + "/api/v1/auth/password/forgot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      }),
+      { developmentToken } = await forgot.json();
+    assert.equal(forgot.status, 200);
+    assert.ok(developmentToken);
+    const reset = await fetch(base + "/api/v1/auth/password/reset", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: developmentToken, password: "A-new-unique-password" }),
+    });
+    assert.equal(reset.status, 200);
+    assert.equal(
+      (
+        await fetch(base + "/api/v1/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ email, password: "A-new-unique-password" }),
+        })
+      ).status,
+      200,
+    );
+  } finally {
+    db.prepare("DELETE FROM login_history WHERE user_id=?").run(userId);
+    db.prepare("DELETE FROM users WHERE id=?").run(userId);
+  }
 });
 test("serves public jobs and CRM shell", async () => {
   const jobs = await fetch(base + "/api/v1/public/jobs"),

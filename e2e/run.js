@@ -174,6 +174,7 @@ const clickSubmit = (page) =>
     crmPage.on("pageerror", (error) => crmErrors.push(error.message));
     await crmPage.goto(base + "/crm", { waitUntil: "networkidle0" });
     await crmPage.waitForSelector('#loginForm button[type="submit"]');
+    await crmPage.type('#loginForm input[name="email"]', "admin@greece.co.il");
     await crmPage.type('#loginForm input[name="password"]', "Admin123!");
     await crmPage.click('#loginForm button[type="submit"]');
     await crmPage.waitForFunction(() =>
