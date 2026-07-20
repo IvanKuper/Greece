@@ -252,8 +252,8 @@ app.post(
 );
 app.get("/manifest.json", (req, res) =>
   res.json({
-    name: "GRIS",
-    short_name: "GRIS",
+    name: "Greece",
+    short_name: "Greece",
     start_url: "/",
     display: "standalone",
     background_color: "#0B0E12",
