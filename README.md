@@ -72,8 +72,9 @@ For email delivery and password reset support, also configure:
 
 ```bash
 SMTP_HOST=smtp.example.com
-SMTP_PORT=465
-SMTP_SECURE=true
+# Use port 587 with STARTTLS for Gmail and hosted environments like Railway.
+SMTP_PORT=587
+SMTP_SECURE=false
 SMTP_USER=your-smtp-user
 SMTP_PASS=your-smtp-password
 EMAIL_FROM="GREECE Website <no-reply@example.com>"
