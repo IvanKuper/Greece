@@ -1,4 +1,5 @@
 const nodemailer=require('nodemailer');
+const dns=require('dns');
 const target=process.env.CONTACT_EMAIL||'greece.maintenance.servicese.ltd@gmail.com';
 const configured=()=>Boolean(process.env.SMTP_HOST&&process.env.SMTP_USER&&process.env.SMTP_PASS);
 let transport;
@@ -16,6 +17,7 @@ function buildTransport(options={}){
     connectionTimeout:10000,
     greetingTimeout:10000,
     socketTimeout:30000,
+    lookup:(hostname, opts, callback)=>dns.lookup(hostname,{family:4},callback),
   });
 }
 function resetTransport(){transport=null;}
@@ -30,9 +32,11 @@ function isGmailTimeoutError(error){
     code==='ESOCKETTIMEDOUT' ||
     code==='ECONNREFUSED' ||
     code==='ECONNRESET' ||
+    code==='ENETUNREACH' ||
     message.includes('connection timeout') ||
     message.includes('timed out') ||
-    message.includes('socket hang up')
+    message.includes('socket hang up') ||
+    message.includes('network is unreachable')
   );
 }
 async function sendMailWithFallback(mailOptions){
