@@ -650,7 +650,7 @@ function businessOSRoutes(app) {
       doc
         .fillColor("#b86f3c")
         .fontSize(24)
-        .text(cfg.company_name || "GREECE LTD");
+        .text(cfg.company_name || "Greece");
       doc
         .fillColor("#172033")
         .fontSize(10)

@@ -1,4 +1,4 @@
-# Greece Ltd Business Management Platform
+# Greece Business Management Platform
 
 A standalone business operating platform with the Greece marketing site, a secure management workspace, and a normalized SQLite data layer.
 
