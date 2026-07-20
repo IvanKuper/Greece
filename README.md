@@ -65,6 +65,19 @@ PORT=3000
 DATABASE_PATH=/absolute/persistent/path/greece.db
 JWT_SECRET=a-long-random-secret
 JWT_REFRESH_SECRET=a-separate-long-random-secret
+PUBLIC_APP_URL=https://your-app.up.railway.app
+```
+
+For email delivery and password reset support, also configure:
+
+```bash
+SMTP_HOST=smtp.example.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
+EMAIL_FROM="GREECE Website <no-reply@example.com>"
+CONTACT_EMAIL=admin@example.com
 ```
 
 ## Deploying to Railway
@@ -86,6 +99,14 @@ Railway can host both the frontend and backend from this single Node.js app.
 Railway has generated a service domain for this deployment: `https://greece-website-production.up.railway.app`
 
 If you prefer Docker deployment, Railway can build this repository from the included `Dockerfile`.
+
+When you want to review or undo changes, use Git. For example:
+
+```bash
+git log --oneline
+# or revert a commit
+git revert <commit-sha>
+```
 
 Terminate TLS at a reverse proxy or managed hosting platform. Passkeys require the same HTTPS origin/RP ID in production. For high write concurrency or multi-tenant deployment, the schema can be migrated to PostgreSQL without changing the REST contract.
 
