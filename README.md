@@ -67,6 +67,24 @@ JWT_SECRET=a-long-random-secret
 JWT_REFRESH_SECRET=a-separate-long-random-secret
 ```
 
+## Deploying to Railway
+
+Railway can host both the frontend and backend from this single Node.js app.
+
+1. Create a new Railway project and connect this GitHub repository.
+2. Set the environment variables in Railway:
+   - `NODE_ENV=production`
+   - `PORT=3000`
+   - `DATABASE_PATH` to the absolute path inside Railway persistent storage, for example `/storage/greece.db`
+   - `JWT_SECRET` and `JWT_REFRESH_SECRET` to strong random values
+   - `PUBLIC_APP_URL` to your Railway app URL, for example `https://your-app.up.railway.app`
+   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`, and `CONTACT_EMAIL` if you want email notifications and password reset support
+   - `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_EMAIL`, and `INITIAL_ADMIN_PASSWORD` before the first startup if the database is new
+3. Attach Railway persistent storage and mount it at a path such as `/storage`, then point `DATABASE_PATH` to `/storage/greece.db`. This ensures the SQLite database survives restarts.
+4. Railway will use the included `Procfile` to run `NODE_ENV=production node server.js`. The app also supports `npm run dev` locally.
+
+If you prefer Docker deployment, Railway can build this repository from the included `Dockerfile`.
+
 Terminate TLS at a reverse proxy or managed hosting platform. Passkeys require the same HTTPS origin/RP ID in production. For high write concurrency or multi-tenant deployment, the schema can be migrated to PostgreSQL without changing the REST contract.
 
 Docker is ready for a single-server deployment:

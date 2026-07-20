@@ -1,7 +1,8 @@
 const Database=require('better-sqlite3');
 const fs=require('fs');const path=require('path');const crypto=require('crypto');const bcrypt=require('bcryptjs');
-const dir=path.join(__dirname,'..','storage');fs.mkdirSync(dir,{recursive:true});
-const db=new Database(process.env.DATABASE_PATH||path.join(dir,'greece.db'));db.pragma('journal_mode = WAL');db.pragma('foreign_keys = ON');
+const defaultStorageDir=path.join(__dirname,'..','storage');const dbPath=path.resolve(process.env.DATABASE_PATH||path.join(defaultStorageDir,'greece.db'));
+fs.mkdirSync(path.dirname(dbPath),{recursive:true});
+const db=new Database(dbPath);db.pragma('journal_mode = WAL');db.pragma('foreign_keys = ON');
 const migrationDir=path.join(__dirname,'..','migrations');for(const file of fs.readdirSync(migrationDir).filter(x=>x.endsWith('.sql')).sort())db.exec(fs.readFileSync(path.join(migrationDir,file),'utf8'));
 const now=()=>new Date().toISOString(), id=()=>crypto.randomUUID();
 const permissions={super_admin:['*'],administrator:['dashboard.read','crm.*','finance.*','hr.*','projects.*','reports.*','settings.*'],manager:['dashboard.read','crm.*','projects.*','tasks.*','employees.read'],accountant:['dashboard.read','finance.*','invoices.*','reports.finance'],hr:['dashboard.read','hr.*','employees.*','payroll.*'],employee:['dashboard.read','tasks.read','tasks.update','projects.read'],read_only:['*.read']};
