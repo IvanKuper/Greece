@@ -7,7 +7,8 @@ const smtpPort=Number(process.env.SMTP_PORT||587);
 const smtpSecure=String(process.env.SMTP_SECURE||'false')==='true';
 function buildTransport(options={}){
   return nodemailer.createTransport({
-    host:process.env.SMTP_HOST,
+    host:options.host||process.env.SMTP_HOST,
+    servername:options.servername||process.env.SMTP_HOST,
     port:options.port||smtpPort,
     secure:options.secure!==undefined?options.secure:smtpSecure,
     auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS},
@@ -17,7 +18,6 @@ function buildTransport(options={}){
     connectionTimeout:10000,
     greetingTimeout:10000,
     socketTimeout:30000,
-    lookup:(hostname, opts, callback)=>dns.lookup(hostname,{family:4},callback),
   });
 }
 function resetTransport(){transport=null;}
@@ -46,8 +46,13 @@ async function sendMailWithFallback(mailOptions){
     return await c.sendMail(mailOptions);
   }catch(error){
     resetTransport();
-    if(process.env.SMTP_HOST==='smtp.gmail.com' && smtpSecure && smtpPort===465 && isGmailTimeoutError(error)){
-      const fallback=buildTransport({port:587,secure:false,requireTLS:true});
+    if(process.env.SMTP_HOST==='smtp.gmail.com' && isGmailTimeoutError(error)){
+      const fallbackOptions={port:587,secure:false,requireTLS:true,servername:process.env.SMTP_HOST};
+      try{
+        const {address}=await dns.promises.lookup(process.env.SMTP_HOST,{family:4});
+        fallbackOptions.host=address;
+      }catch(_){/* fall back to hostname if IPv4 lookup fails */}
+      const fallback=buildTransport(fallbackOptions);
       transport=fallback;
       return await transport.sendMail(mailOptions);
     }
