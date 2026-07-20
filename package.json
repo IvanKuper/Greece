@@ -6,6 +6,7 @@
     "dev": "node server.js",
     "start": "NODE_ENV=production node server.js",
     "backup": "node scripts/backup.js",
+    "package:netlify": "node scripts/package-netlify.js",
     "test": "node --test",
     "test:e2e": "node e2e/run.js",
     "test:all": "npm test && npm run test:e2e"
