@@ -192,11 +192,35 @@
       }
     } catch {}
   }
+  function applySiteBranding() {
+    const titleMap = {
+      "/": "Greece",
+      "/about": "About | Greece",
+      "/process": "Process | Greece",
+      "/certifications": "Certifications | Greece",
+      "/applications": "Careers | Greece",
+      "/contact": "Contact | Greece",
+    };
+    document.title = titleMap[location.pathname] || "Greece";
+    const titleMeta = document.querySelector("meta[property='og:title']");
+    if (titleMeta) titleMeta.content = document.title;
+    const twitterTitleMeta = document.querySelector("meta[name='twitter:title']");
+    if (twitterTitleMeta) twitterTitleMeta.content = document.title;
+    const canonical = document.querySelector("link[rel='canonical']");
+    if (canonical)
+      canonical.href = "https://greece-website-production.up.railway.app";
+    for (const el of document.querySelectorAll("body *")) {
+      if (el.children.length === 0 && el.textContent.includes("GRIS")) {
+        el.textContent = el.textContent.replace(/GRIS/g, "Greece");
+      }
+    }
+  }
   function patch() {
     patchJobs();
     patchCrmLinks();
     patchPublicNavigation();
     enhancePublicPage();
+    applySiteBranding();
   }
   document.addEventListener("input", () => queueMicrotask(patch), true);
   document.addEventListener(
