@@ -83,6 +83,8 @@ Railway can host both the frontend and backend from this single Node.js app.
 3. Attach Railway persistent storage and mount it at a path such as `/storage`, then point `DATABASE_PATH` to `/storage/greece.db`. This ensures the SQLite database survives restarts.
 4. Railway will use the included `Procfile` to run `NODE_ENV=production node server.js`. The app also supports `npm run dev` locally.
 
+Railway has generated a service domain for this deployment: `https://greece-website-production.up.railway.app`
+
 If you prefer Docker deployment, Railway can build this repository from the included `Dockerfile`.
 
 Terminate TLS at a reverse proxy or managed hosting platform. Passkeys require the same HTTPS origin/RP ID in production. For high write concurrency or multi-tenant deployment, the schema can be migrated to PostgreSQL without changing the REST contract.
