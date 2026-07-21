@@ -71,6 +71,9 @@ PUBLIC_APP_URL=https://your-app.up.railway.app
 For email delivery and password reset support, also configure:
 
 ```bash
+# Optional Resend email service. When set, Resend is used before SMTP.
+RESEND_API_KEY=your-resend-api-key
+
 SMTP_HOST=smtp.example.com
 # Use port 587 with STARTTLS for Gmail and hosted environments like Railway.
 SMTP_PORT=587
@@ -92,7 +95,7 @@ Railway can host both the frontend and backend from this single Node.js app.
    - `DATABASE_PATH` to the absolute path inside Railway persistent storage, for example `/storage/greece.db`
    - `JWT_SECRET` and `JWT_REFRESH_SECRET` to strong random values
    - `PUBLIC_APP_URL` to your Railway app URL, for example `https://your-app.up.railway.app`
-   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`, and `CONTACT_EMAIL` if you want email notifications and password reset support
+   - `RESEND_API_KEY` if you want to use Resend for email delivery, and/or `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`, and `CONTACT_EMAIL` if you want SMTP email notifications and password reset support
    - `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_EMAIL`, and `INITIAL_ADMIN_PASSWORD` before the first startup if the database is new
 3. Attach Railway persistent storage and mount it at a path such as `/storage`, then point `DATABASE_PATH` to `/storage/greece.db`. This ensures the SQLite database survives restarts.
 4. Railway will use the included `Procfile` to run `NODE_ENV=production node server.js`. The app also supports `npm run dev` locally.

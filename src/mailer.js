@@ -1,9 +1,33 @@
 const nodemailer=require('nodemailer');
 const dns=require('dns');
 const target=process.env.CONTACT_EMAIL||'greece.maintenance.servicese.ltd@gmail.com';
-const configured=()=>Boolean(process.env.SMTP_HOST&&process.env.SMTP_USER&&process.env.SMTP_PASS);
+const resendApiKey=process.env.RESEND_API_KEY;
+const configuredSMTP=()=>Boolean(process.env.SMTP_HOST&&process.env.SMTP_USER&&process.env.SMTP_PASS);
+const configuredResend=()=>Boolean(resendApiKey&&process.env.EMAIL_FROM);
 const smtpPort=Number(process.env.SMTP_PORT||587);
 const smtpSecure=String(process.env.SMTP_SECURE||'false')==='true';
+async function sendResendMail({from,to,replyTo,subject,text,html}){
+  if(!configuredResend())return {sent:false,reason:'RESEND_NOT_CONFIGURED'};
+  const body={from,to,subject,text};
+  if(html)body.html=html;
+  if(replyTo)body.reply_to=replyTo;
+  const response=await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer `,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data=await response.json();
+  if(!response.ok){
+    const message=data.error?.message||data.error?.type||`Resend error ${response.status}`;
+    const error=new Error(message);
+    error.response=data;
+    throw error;
+  }
+  return {sent:true,messageId:data.id||null};
+}
 async function buildTransport(options={}){
   const host=options.host||process.env.SMTP_HOST;
   let resolvedHost=host;
@@ -26,7 +50,7 @@ async function buildTransport(options={}){
     socketTimeout:30000,
   });
 }
-async function client(options={}){if(!configured())return null;return buildTransport(options)}
+async function client(options={}){if(!configuredSMTP())return null;return buildTransport(options)}
 function isGmailTimeoutError(error){
   if(!error) return false;
   const code=String(error.code||'').toUpperCase();
@@ -45,6 +69,23 @@ function isGmailTimeoutError(error){
   );
 }
 async function sendMailWithFallback(mailOptions){
+  if(configuredResend()){
+    try{
+      return await sendResendMail(mailOptions);
+    }catch(error){
+      if(configuredSMTP()){
+        const smtpTransport=await client();
+        if(smtpTransport){
+          try{
+            return await smtpTransport.sendMail(mailOptions);
+          }catch(smtpError){
+            error.smtpError=smtpError;
+          }
+        }
+      }
+      throw error;
+    }
+  }
   const c=await client();
   if(!c) return {sent:false,reason:'SMTP_NOT_CONFIGURED'};
   try{
@@ -64,9 +105,11 @@ async function sendMailWithFallback(mailOptions){
 }
 const clean=v=>String(v||'').replace(/[\r\n]+/g,' ').slice(0,500);
 const html=v=>clean(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-async function sendLead(lead){const c=await client();if(!c)return {sent:false,reason:'SMTP_NOT_CONFIGURED'};const subject=`פנייה חדשה מהאתר — ${clean(lead.full_name)}`;const lines=[`שם: ${clean(lead.full_name)}`,`חברה: ${clean(lead.company)}`,`טלפון: ${clean(lead.phone)}`,`אימייל: ${clean(lead.email)}`,`שירות: ${clean(lead.service_type)}`,'',String(lead.message||'').slice(0,3000)];const result=await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE Website <${process.env.SMTP_USER}>`,to:target,replyTo:lead.email||undefined,subject,text:lines.join('\n'),html:`<div dir="rtl" style="font-family:Arial,sans-serif;max-width:620px"><h2 style="color:#b86f3c">פנייה חדשה מהאתר</h2><table cellpadding="8" style="border-collapse:collapse;width:100%"><tr><td><b>שם</b></td><td>${html(lead.full_name)}</td></tr><tr><td><b>חברה</b></td><td>${html(lead.company)}</td></tr><tr><td><b>טלפון</b></td><td dir="ltr">${html(lead.phone)}</td></tr><tr><td><b>אימייל</b></td><td>${html(lead.email)}</td></tr><tr><td><b>שירות</b></td><td>${html(lead.service_type)}</td></tr></table><h3>הודעה</h3><p style="white-space:pre-wrap">${html(lead.message)}</p></div>`});if(lead.email){await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE <${process.env.SMTP_USER}>`,to:lead.email,subject:'קיבלנו את הפנייה שלך — GREECE',text:`שלום ${clean(lead.full_name)},\n\nקיבלנו את פנייתך ונחזור אליך בהקדם.\n\nצוות GREECE`,html:`<div dir="rtl" style="font-family:Arial,sans-serif"><h2>תודה שפנית אלינו</h2><p>שלום ${html(lead.full_name)},</p><p>קיבלנו את פנייתך ונחזור אליך בהקדם.</p><p>צוות GREECE</p></div>`})}return {sent:true,messageId:result.messageId}}
-async function sendRaw({subject,body,replyTo}){const c=await client();if(!c)return {sent:false,reason:'SMTP_NOT_CONFIGURED'};const result=await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE Website <${process.env.SMTP_USER}>`,to:target,replyTo:replyTo||undefined,subject:clean(subject||'פנייה חדשה מהאתר'),text:String(body||'').slice(0,5000)});return {sent:true,messageId:result.messageId}}
-async function sendApplication(application){const c=await client();if(!c)return {sent:false,reason:'SMTP_NOT_CONFIGURED'};const body=[`משרה: ${clean(application.job_title)}`,`שם: ${clean(application.full_name)}`,`טלפון: ${clean(application.phone)}`,`אימייל: ${clean(application.email)}`,'',`ניסיון: ${String(application.experience||'').slice(0,3000)}`].join('\n');const result=await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE Website <${process.env.SMTP_USER}>`,to:target,replyTo:application.email||undefined,subject:`מועמדות חדשה — ${clean(application.job_title||application.full_name)}`,text:body});if(application.email)await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE <${process.env.SMTP_USER}>`,to:application.email,subject:'קיבלנו את המועמדות שלך — GREECE',text:`שלום ${clean(application.full_name)},\n\nקיבלנו את המועמדות שלך למשרת ${clean(application.job_title)}. נבחן אותה וניצור קשר בהקדם.\n\nצוות GREECE`});return {sent:true,messageId:result.messageId}}
-async function sendPasswordReset({email,name,resetUrl}){const c=await client();if(!c)return {sent:false,reason:'SMTP_NOT_CONFIGURED'};const result=await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE <${process.env.SMTP_USER}>`,to:email,subject:'איפוס סיסמה — GREECE Business Platform',text:`שלום ${clean(name)},\n\nלחצו על הקישור הבא כדי לאפס את הסיסמה. הקישור תקף לשעה אחת בלבד:\n${resetUrl}\n\nאם לא ביקשתם איפוס סיסמה, אפשר להתעלם מהודעה זו.`,html:`<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.6"><h2>איפוס סיסמה</h2><p>שלום ${html(name)},</p><p>לחצו על הכפתור כדי לאפס את הסיסמה. הקישור תקף לשעה אחת בלבד.</p><p><a href="${html(resetUrl)}" style="display:inline-block;padding:12px 20px;background:#b86f3c;color:white;text-decoration:none;border-radius:6px">איפוס סיסמה</a></p><p>אם לא ביקשתם איפוס סיסמה, אפשר להתעלם מהודעה זו.</p></div>`});return {sent:true,messageId:result.messageId}}
+async function sendLead(lead){const subject=`פנייה חדשה מהאתר — ${clean(lead.full_name)}`;const lines=[`שם: ${clean(lead.full_name)}`,`חברה: ${clean(lead.company)}`,`טלפון: ${clean(lead.phone)}`,`אימייל: ${clean(lead.email)}`,`שירות: ${clean(lead.service_type)}`,'',String(lead.message||'').slice(0,3000)];const result=await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE Website <${process.env.SMTP_USER}>`,to:target,replyTo:lead.email||undefined,subject,text:lines.join('\n'),html:`<div dir="rtl" style="font-family:Arial,sans-serif;max-width:620px"><h2 style="color:#b86f3c">פנייה חדשה מהאתר</h2><table cellpadding="8" style="border-collapse:collapse;width:100%"><tr><td><b>שם</b></td><td>${html(lead.full_name)}</td></tr><tr><td><b>חברה</b></td><td>${html(lead.company)}</td></tr><tr><td><b>טלפון</b></td><td dir="ltr">${html(lead.phone)}</td></tr><tr><td><b>אימייל</b></td><td>${html(lead.email)}</td></tr><tr><td><b>שירות</b></td><td>${html(lead.service_type)}</td></tr></table><h3>הודעה</h3><p style="white-space:pre-wrap">${html(lead.message)}</p></div>`});if(lead.email){await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE <${process.env.SMTP_USER}>`,to:lead.email,subject:'קיבלנו את הפנייה שלך — GREECE',text:`שלום ${clean(lead.full_name)},\n\nקיבלנו את פנייתך ונחזור אליך בהקדם.\n\nצוות GREECE`,html:`<div dir="rtl" style="font-family:Arial,sans-serif"><h2>תודה שפנית אלינו</h2><p>שלום ${html(lead.full_name)},</p><p>קיבלנו את פנייתך ונחזור אליך בהקדם.</p><p>צוות GREECE</p></div>`})}return result}
+async function sendRaw({subject,body,replyTo}){const result=await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE Website <${process.env.SMTP_USER}>`,to:target,replyTo:replyTo||undefined,subject:clean(subject||'פנייה חדשה מהאתר'),text:String(body||'').slice(0,5000)});return result}
+async function sendApplication(application){const body=[`משרה: ${clean(application.job_title)}`,`שם: ${clean(application.full_name)}`,`טלפון: ${clean(application.phone)}`,`אימייל: ${clean(application.email)}`,'',`ניסיון: ${String(application.experience||'').slice(0,3000)}`].join('\n');const result=await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE Website <${process.env.SMTP_USER}>`,to:target,replyTo:application.email||undefined,subject:`מועמדות חדשה — ${clean(application.job_title||application.full_name)}`,text:body});if(application.email)await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE <${process.env.SMTP_USER}>`,to:application.email,subject:'קיבלנו את המועמדות שלך — GREECE',text:`שלום ${clean(application.full_name)},\n\nקיבלנו את המועמדות שלך למשרת ${clean(application.job_title)}. נבחן אותה וניצור קשר בהקדם.\n\nצוות GREECE`});return result}
+async function sendPasswordReset({email,name,resetUrl}){const result=await sendMailWithFallback({from:process.env.EMAIL_FROM||`GREECE <${process.env.SMTP_USER}>`,to:email,subject:'איפוס סיסמה — GREECE Business Platform',text:`שלום ${clean(name)},\n\nלחצו על הקישור הבא כדי לאפס את הסיסמה. הקישור תקף לשעה אחת בלבד:\n${resetUrl}\n\nאם לא ביקשתם איפוס סיסמה, אפשר להתעלם מהודעה זו.`,html:`<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.6"><h2>איפוס סיסמה</h2><p>שלום ${html(name)},</p><p>לחצו על הכפתור כדי לאפס את הסיסמה. הקישור תקף לשעה אחת בלבד.</p><p><a href="${html(resetUrl)}" style="display:inline-block;padding:12px 20px;background:#b86f3c;color:white;text-decoration:none;border-radius:6px">איפוס סיסמה</a></p><p>אם לא ביקשתם איפוס סיסמה, אפשר להתעלם מהודעה זו.</p></div>`});return result}
 async function verify(){const c=await client();if(!c)return {configured:false,recipient:target};try{await c.verify();return {configured:true,connected:true,recipient:target}}catch(error){return {configured:true,connected:false,recipient:target,error:error.message}}}
+const configured=()=>configuredResend()||configuredSMTP();
 module.exports={sendLead,sendRaw,sendApplication,sendPasswordReset,verify,configured,target};
+
