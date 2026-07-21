@@ -6,20 +6,23 @@ const configuredSMTP=()=>Boolean(process.env.SMTP_HOST&&process.env.SMTP_USER&&p
 const configuredResend=()=>Boolean(resendApiKey&&process.env.EMAIL_FROM);
 const smtpPort=Number(process.env.SMTP_PORT||587);
 const smtpSecure=String(process.env.SMTP_SECURE||'false')==='true';
+function normalizeEmailAddress(value){return String(value||'').trim();}
 async function sendResendMail({from,to,replyTo,subject,text,html}){
   if(!configuredResend())return {sent:false,reason:'RESEND_NOT_CONFIGURED'};
-  const body={from,to,subject,text};
+  if(!normalizeEmailAddress(to))return {sent:false,reason:'NO_RECIPIENT'};
+  const body={from:normalizeEmailAddress(from),to:normalizeEmailAddress(to),subject:normalizeEmailAddress(subject),text};
   if(html)body.html=html;
-  if(replyTo)body.reply_to=replyTo;
+  if(replyTo)body.reply_to=normalizeEmailAddress(replyTo);
   const response=await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer `,
+      Authorization: `Bearer ${resendApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
   });
-  const data=await response.json();
+  let data={};
+  try{data=await response.json();}catch(_){data={};}
   if(!response.ok){
     const message=data.error?.message||data.error?.type||`Resend error ${response.status}`;
     const error=new Error(message);
@@ -74,17 +77,17 @@ async function sendMailWithFallback(mailOptions){
       return await sendResendMail(mailOptions);
     }catch(error){
       if(configuredSMTP()){
-        const smtpTransport=await client();
-        if(smtpTransport){
-          try{
+        try{
+          const smtpTransport=await client();
+          if(smtpTransport){
             const result=await smtpTransport.sendMail(mailOptions);
             return {sent:true,messageId:result.messageId||null,info:result};
-          }catch(smtpError){
-            error.smtpError=smtpError;
           }
+        }catch(smtpError){
+          error.smtpError=smtpError;
         }
       }
-      throw error;
+      return {sent:false,reason:'EMAIL_SEND_FAILED',error:error.message};
     }
   }
   const c=await client();
@@ -103,7 +106,7 @@ async function sendMailWithFallback(mailOptions){
       const result=await fallback.sendMail(mailOptions);
       return {sent:true,messageId:result.messageId||null,info:result};
     }
-    throw error;
+    return {sent:false,reason:'SMTP_ERROR',error:error.message};
   }
 }
 const clean=v=>String(v||'').replace(/[\r\n]+/g,' ').slice(0,500);
@@ -115,4 +118,3 @@ async function sendPasswordReset({email,name,resetUrl}){const result=await sendM
 async function verify(){const c=await client();if(!c)return {configured:false,recipient:target};try{await c.verify();return {configured:true,connected:true,recipient:target}}catch(error){return {configured:true,connected:false,recipient:target,error:error.message}}}
 const configured=()=>configuredResend()||configuredSMTP();
 module.exports={sendLead,sendRaw,sendApplication,sendPasswordReset,verify,configured,target};
-
