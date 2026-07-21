@@ -226,12 +226,21 @@
     }
     document.documentElement.setAttribute("data-brand", "greece");
   }
+  const observerOptions = {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["disabled", "href"],
+  };
+  const observer = new MutationObserver(patch);
   function patch() {
+    observer.disconnect();
     patchJobs();
     patchCrmLinks();
     patchPublicNavigation();
     enhancePublicPage();
     applySiteBranding();
+    observer.observe(document.documentElement, observerOptions);
   }
   document.addEventListener("input", () => queueMicrotask(patch), true);
   document.addEventListener(
@@ -256,12 +265,7 @@
     },
     true,
   );
-  new MutationObserver(patch).observe(document.documentElement, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ["disabled", "href"],
-  });
+  observer.observe(document.documentElement, observerOptions);
   addEventListener("DOMContentLoaded", () => {
     if (repairBrokenHashPath()) return;
     patch();
