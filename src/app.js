@@ -105,7 +105,6 @@ app.post("/api/v1/public/leads", async (req, res) => {
     console.error("Contact email failed:", error);
     email = { sent: false, reason: "SMTP_ERROR" };
   }
-  console.log("Lead email result", email);
   res.status(201).json({ id: x.id, ok: true, emailSent: email.sent });
 });
 app.post("/api/v1/public/applications", async (req, res) => {
