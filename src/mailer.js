@@ -77,7 +77,8 @@ async function sendMailWithFallback(mailOptions){
         const smtpTransport=await client();
         if(smtpTransport){
           try{
-            return await smtpTransport.sendMail(mailOptions);
+            const result=await smtpTransport.sendMail(mailOptions);
+            return {sent:true,messageId:result.messageId||null,info:result};
           }catch(smtpError){
             error.smtpError=smtpError;
           }
@@ -89,7 +90,8 @@ async function sendMailWithFallback(mailOptions){
   const c=await client();
   if(!c) return {sent:false,reason:'SMTP_NOT_CONFIGURED'};
   try{
-    return await c.sendMail(mailOptions);
+    const result=await c.sendMail(mailOptions);
+    return {sent:true,messageId:result.messageId||null,info:result};
   }catch(error){
     if(process.env.SMTP_HOST==='smtp.gmail.com' && isGmailTimeoutError(error)){
       const fallbackOptions={port:587,secure:false,requireTLS:true,servername:process.env.SMTP_HOST};
@@ -98,7 +100,8 @@ async function sendMailWithFallback(mailOptions){
         fallbackOptions.host=address;
       }catch(_){/* fall back to hostname if IPv4 lookup fails */}
       const fallback=await client(fallbackOptions);
-      return await fallback.sendMail(mailOptions);
+      const result=await fallback.sendMail(mailOptions);
+      return {sent:true,messageId:result.messageId||null,info:result};
     }
     throw error;
   }
