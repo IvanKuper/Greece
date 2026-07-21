@@ -16,6 +16,7 @@ function buildTransport(options={}){
     connectionTimeout:15000,
     greetingTimeout:15000,
     socketTimeout:30000,
+    socketOptions:{family:4},
   });
 }
 function client(options={}){if(!configured())return null;return buildTransport(options)}
