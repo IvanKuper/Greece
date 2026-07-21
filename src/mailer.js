@@ -2,7 +2,6 @@ const nodemailer=require('nodemailer');
 const dns=require('dns');
 const target=process.env.CONTACT_EMAIL||'greece.maintenance.servicese.ltd@gmail.com';
 const configured=()=>Boolean(process.env.SMTP_HOST&&process.env.SMTP_USER&&process.env.SMTP_PASS);
-let transport;
 const smtpPort=Number(process.env.SMTP_PORT||587);
 const smtpSecure=String(process.env.SMTP_SECURE||'false')==='true';
 function buildTransport(options={}){
@@ -12,16 +11,14 @@ function buildTransport(options={}){
     port:options.port||smtpPort,
     secure:options.secure!==undefined?options.secure:smtpSecure,
     auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASS},
-    pool:true,
-    maxConnections:3,
+    pool:false,
     requireTLS:options.requireTLS||false,
-    connectionTimeout:10000,
-    greetingTimeout:10000,
+    connectionTimeout:15000,
+    greetingTimeout:15000,
     socketTimeout:30000,
   });
 }
-function resetTransport(){transport=null;}
-function client(){if(transport)return transport;if(!configured())return null;transport=buildTransport();return transport}
+function client(options={}){if(!configured())return null;return buildTransport(options)}
 function isGmailTimeoutError(error){
   if(!error) return false;
   const code=String(error.code||'').toUpperCase();
@@ -45,7 +42,6 @@ async function sendMailWithFallback(mailOptions){
   try{
     return await c.sendMail(mailOptions);
   }catch(error){
-    resetTransport();
     if(process.env.SMTP_HOST==='smtp.gmail.com' && isGmailTimeoutError(error)){
       const fallbackOptions={port:587,secure:false,requireTLS:true,servername:process.env.SMTP_HOST};
       try{
@@ -53,8 +49,7 @@ async function sendMailWithFallback(mailOptions){
         fallbackOptions.host=address;
       }catch(_){/* fall back to hostname if IPv4 lookup fails */}
       const fallback=buildTransport(fallbackOptions);
-      transport=fallback;
-      return await transport.sendMail(mailOptions);
+      return await fallback.sendMail(mailOptions);
     }
     throw error;
   }
