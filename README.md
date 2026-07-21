@@ -13,7 +13,7 @@ npm run dev
 - Business platform: http://localhost:3000/crm
 - API base: http://localhost:3000/api/v1
 
-For a new database, set `INITIAL_ADMIN_EMAIL` and a unique `INITIAL_ADMIN_PASSWORD` (12+ characters) in `.env` before the first start. The application never creates a production administrator with a known default password.
+For a new database, set `INITIAL_ADMIN_EMAIL` and a unique `INITIAL_ADMIN_PASSWORD` (8+ characters in development, 12+ in production) in `.env` before the first start. The application never creates a production administrator with a known default password.
 
 ## Architecture
 
