@@ -201,19 +201,30 @@
       "/applications": "Careers | Greece",
       "/contact": "Contact | Greece",
     };
-    document.title = titleMap[location.pathname] || "Greece";
+    const pageTitle = titleMap[location.pathname] || "Greece";
+    document.title = pageTitle;
     const titleMeta = document.querySelector("meta[property='og:title']");
-    if (titleMeta) titleMeta.content = document.title;
+    if (titleMeta) titleMeta.content = pageTitle;
     const twitterTitleMeta = document.querySelector("meta[name='twitter:title']");
-    if (twitterTitleMeta) twitterTitleMeta.content = document.title;
+    if (twitterTitleMeta) twitterTitleMeta.content = pageTitle;
+    const descriptionMeta = document.querySelector("meta[name='description']");
+    if (descriptionMeta) descriptionMeta.content = "Greece provides staffing, maintenance, cleaning and logistics services for demanding operations.";
     const canonical = document.querySelector("link[rel='canonical']");
     if (canonical)
       canonical.href = "https://greece-website-production.up.railway.app";
     for (const el of document.querySelectorAll("body *")) {
-      if (el.children.length === 0 && el.textContent.includes("GRIS")) {
-        el.textContent = el.textContent.replace(/GRIS/g, "Greece");
+      if (!el.textContent) continue;
+      const nextText = el.textContent.replace(/\bgris\b/gi, "Greece");
+      if (nextText !== el.textContent) el.textContent = nextText;
+    }
+    for (const attr of ["aria-label", "alt", "placeholder", "title"]) {
+      for (const el of document.querySelectorAll(`[${attr}]`)) {
+        const raw = el.getAttribute(attr) || "";
+        const next = raw.replace(/\bgris\b/gi, "Greece");
+        if (next !== raw) el.setAttribute(attr, next);
       }
     }
+    document.documentElement.setAttribute("data-brand", "greece");
   }
   function patch() {
     patchJobs();

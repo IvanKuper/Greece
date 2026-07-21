@@ -2,7 +2,7 @@
   "use strict";
   const $ = (selector, root = document) => root.querySelector(selector);
   const state = {
-    lang: localStorage.getItem("gris-language") || "he",
+    lang: localStorage.getItem("greece-language") || localStorage.getItem("gris-language") || "he",
     theme: localStorage.getItem("greece-theme") || "dark",
     business: {},
     jobs: [],
@@ -137,7 +137,7 @@
   }
   document.addEventListener("click", (event) => {
     const language = event.target.closest("[data-language]")?.dataset.language;
-    if (language) { state.lang = language; localStorage.setItem("gris-language", language); render(); return; }
+    if (language) { state.lang = language; localStorage.setItem("greece-language", language); localStorage.removeItem("gris-language"); render(); return; }
     const action = event.target.closest("[data-action]")?.dataset.action;
     if (action === "theme") { state.theme = state.theme === "dark" ? "light" : "dark"; localStorage.setItem("greece-theme", state.theme); render(); return; }
     if (action === "menu") { const menu = $("#mobile-menu"), open = menu.classList.toggle("open"); event.target.closest("button").setAttribute("aria-expanded", String(open)); return; }
