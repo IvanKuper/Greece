@@ -137,6 +137,7 @@ app.post("/api/v1/public/applications", async (req, res) => {
   }
   res.status(201).json({ id: x.id, ok: true, emailSent: email.sent });
 });
+app.post("/api/v1/public/web-vitals", (req, res) => res.sendStatus(204));
 app.get("/api/v1/public/jobs", (req, res) =>
   res.json(
     db
