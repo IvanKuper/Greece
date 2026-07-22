@@ -429,13 +429,14 @@ function sidebar() {
 function appView() {
   document.body.className = document.documentElement.dir === "rtl" ? "rtl" : "";
   $("#app").innerHTML =
-    `<div class="app">${sidebar()}<div class="workspace"><header class="topbar"><button class="icon-btn mobile-menu" aria-label="Open menu" onclick="$('.sidebar').classList.toggle('open')">☰</button><div class="global-search"><label class="sr-only" for="globalSearch">Search business records</label><input class="input" id="globalSearch" placeholder="Search customers, people, projects, invoices…"><div class="search-results" id="searchResults"></div></div><div class="top-actions"><button class="icon-btn" title="Theme" aria-label="Switch color theme" onclick="toggleTheme()">◐</button><button class="icon-btn" title="Language" aria-label="Switch language" onclick="toggleLanguage()">文</button><button class="icon-btn notification-button" title="Notifications" aria-label="Open notifications" onclick="openModule('notifications')">♢<span id="notificationCount" hidden></span></button><div class="avatar">${(user?.name || "A").slice(0, 1)}</div><span class="user-name"><b>${user?.name || ""}</b><small class="muted" style="display:block">${user?.role || ""}</small></span><button class="icon-btn" title="Logout" aria-label="Log out" onclick="logout()">↪</button></div></header><main class="content" id="content" tabindex="-1"></main></div></div>`;
+    `<div class="app">${sidebar()}<div class="workspace"><header class="topbar"><button class="icon-btn mobile-menu" aria-label="Open menu" onclick="$('.sidebar').classList.toggle('open')">☰</button><div class="global-search"><label class="sr-only" for="globalSearch">Search business records</label><input class="input" id="globalSearch" placeholder="Search customers, people, projects, invoices… (Ctrl/Cmd+K)"><div class="search-results" id="searchResults"></div></div><div class="top-actions"><button class="icon-btn" title="Theme" aria-label="Switch color theme" onclick="toggleTheme()">◐</button><button class="icon-btn" title="Language" aria-label="Switch language" onclick="toggleLanguage()">文</button><button class="icon-btn notification-button" title="Notifications" aria-label="Open notifications" onclick="openModule('notifications')">♢<span id="notificationCount" hidden></span></button><div class="avatar">${(user?.name || "A").slice(0, 1)}</div><span class="user-name"><b>${user?.name || ""}</b><small class="muted" style="display:block">${user?.role || ""}</small></span><button class="icon-btn" title="Logout" aria-label="Log out" onclick="logout()">↪</button></div></header><main class="content" id="content" tabindex="-1"></main></div></div>`;
   $$("[data-module]").forEach(
     (b) => (b.onclick = () => openModule(b.dataset.module)),
   );
   $("#globalSearch").oninput = globalSearch;
   startNotificationStream();
   render();
+  maybeStartTour();
 }
 async function render() {
   history.replaceState({}, "", `/crm#${current}`);
@@ -456,7 +457,7 @@ async function dashboard() {
         api("/system/email-status"),
       ]),
       k = x.kpis;
-    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">Executive overview</span><h1>Good ${new Date().getHours() < 12 ? "morning" : "afternoon"}, ${(user.name || "").split(" ")[0]}</h1><p class="muted">Here is what is happening across your business today.</p></div><button class="btn" onclick="openModule('tasks');setTimeout(openCreate,20)">＋ New task</button></div>${emailStatus.connected ? "" : `<div class="card" style="border-color:var(--yellow);margin-bottom:16px"><b>⚠ Email delivery requires configuration</b><p class="muted" style="margin:7px 0 0">Contact forms are saved in CRM, but SMTP must be connected before messages can reach ${escapeHtml(emailStatus.recipient)}.</p></div>`}<div class="kpis">${[
+    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">Executive overview</span><h1>Good ${new Date().getHours() < 12 ? "morning" : "afternoon"}, ${(user.name || "").split(" ")[0]}</h1><p class="muted">Here is what is happening across your business today.</p></div><button class="btn" onclick="openModule('tasks');setTimeout(openCreate,20)">＋ New task</button></div>${emailStatus.connected ? "" : `<div class="card" style="border-color:var(--yellow);margin-bottom:16px"><b>⚠ Email delivery requires configuration</b><p class="muted" style="margin:7px 0 0">Contact forms are saved in CRM, but SMTP must be connected before messages can reach ${escapeHtml(emailStatus.recipient)}.</p></div>`}${!user.twoFactorEnabled && ["administrator", "super_admin"].includes(user.role) ? `<div class="card" style="border-color:var(--yellow);margin-bottom:16px"><b>⚠ Two-factor authentication is not enabled</b><p class="muted" style="margin:7px 0 0">Your account has administrator access. <button class="btn secondary" style="padding:4px 12px;margin-inline-start:6px" onclick="openModule('security');setTimeout(setup2FA,20)">Enable 2FA now</button></p></div>` : ""}<div class="kpis">${[
       ["Revenue", money(k.revenue), "↗ 12.4%"],
       ["Expenses", money(k.expenses), "Current period"],
       ["Net profit", money(k.profit), "Healthy margin"],
@@ -1450,6 +1451,55 @@ function toast(s) {
   e.classList.add("show");
   setTimeout(() => e.classList.remove("show"), 2700);
 }
+const ONBOARDING_STEPS = [
+  {
+    icon: "⌂",
+    title: "Your dashboard",
+    text: "See revenue, tasks, and pipeline at a glance the moment you sign in.",
+  },
+  {
+    icon: "⌘",
+    title: "Search anything",
+    text: "Press Ctrl+K (or Cmd+K on Mac) anytime to jump straight to customers, invoices, or projects.",
+  },
+  {
+    icon: "♢",
+    title: "Stay notified",
+    text: "New leads and approvals show up here in real time — no refresh needed.",
+  },
+  {
+    icon: "◐",
+    title: "Make it yours",
+    text: "Switch between light/dark themes and languages from the top bar.",
+  },
+];
+let tourStep = 0;
+function onboardingTourHtml() {
+  const s = ONBOARDING_STEPS[tourStep];
+  return `<div class="modal-backdrop" id="tourModal"><div class="modal" style="max-width:440px;text-align:center;position:relative"><button type="button" class="icon-btn" style="position:absolute;top:14px;right:14px" onclick="endTour()" aria-label="Skip tour">×</button><div style="font-size:40px;margin-bottom:14px">${s.icon}</div><h2 style="margin:0 0 10px">${s.title}</h2><p class="muted" style="margin:0 0 22px">${s.text}</p><div style="display:flex;justify-content:center;gap:6px;margin-bottom:22px">${ONBOARDING_STEPS.map((_, i) => `<span style="width:7px;height:7px;border-radius:50%;background:${i === tourStep ? "var(--primary)" : "var(--line)"}"></span>`).join("")}</div><div class="modal-actions" style="justify-content:center">${tourStep > 0 ? '<button type="button" class="btn secondary" onclick="tourStep--;renderTour()">Back</button>' : ""}<button type="button" class="btn" onclick="${tourStep < ONBOARDING_STEPS.length - 1 ? "tourStep++;renderTour()" : "endTour()"}">${tourStep < ONBOARDING_STEPS.length - 1 ? "Next" : "Get started"}</button></div></div></div>`;
+}
+function renderTour() {
+  $("#tourModal")?.remove();
+  document.body.insertAdjacentHTML("beforeend", onboardingTourHtml());
+}
+function endTour() {
+  localStorage.onboardingSeen = "1";
+  $("#tourModal")?.remove();
+}
+function maybeStartTour() {
+  if (localStorage.onboardingSeen) return;
+  tourStep = 0;
+  renderTour();
+}
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    const box = $("#globalSearch");
+    if (!box) return;
+    e.preventDefault();
+    box.focus();
+    box.select();
+  }
+});
 async function init() {
   document.documentElement.dataset.theme = localStorage.theme || "light";
   const deepModule = location.pathname.match(/^\/crm\/([^/?#]+)/)?.[1];

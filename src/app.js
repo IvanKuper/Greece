@@ -35,12 +35,18 @@ app.use(
           "https://images.unsplash.com",
         ],
         connectSrc: ["'self'"],
+        reportUri: ["/api/csp-report"],
       },
     },
   }),
 );
 app.use(compression());
-app.use(express.json({ limit: "15mb" }));
+app.use(
+  express.json({
+    limit: "15mb",
+    type: ["application/json", "application/csp-report", "application/reports+json"],
+  }),
+);
 app.use(express.urlencoded({ extended: false, limit: "15mb" }));
 app.use(cookieParser());
 const limiter = rateLimit({
@@ -54,6 +60,13 @@ const loginLimiter = rateLimit({
   limit: 12,
   skipSuccessfulRequests: true,
 });
+const publicFormLimiter = rateLimit({
+  windowMs: 10 * 60000,
+  limit: 8,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+});
+const isHoneypotFilled = (req) => Boolean(String(req.body.website || "").trim());
 app.use("/api", limiter);
 app.use((req, res, next) => {
   res.setHeader("X-Request-Id", crypto.randomUUID());
@@ -75,7 +88,8 @@ app.get("/api/health", (req, res) => {
     res.status(503).json({ status: "unhealthy" });
   }
 });
-app.post("/api/v1/public/leads", async (req, res) => {
+app.post("/api/v1/public/leads", publicFormLimiter, async (req, res) => {
+  if (isHoneypotFilled(req)) return res.status(201).json({ id: id(), ok: true, emailSent: false });
   if (!req.body.full_name || !req.body.phone)
     return res
       .status(400)
@@ -107,7 +121,8 @@ app.post("/api/v1/public/leads", async (req, res) => {
   }
   res.status(201).json({ id: x.id, ok: true, emailSent: email.sent });
 });
-app.post("/api/v1/public/applications", async (req, res) => {
+app.post("/api/v1/public/applications", publicFormLimiter, async (req, res) => {
+  if (isHoneypotFilled(req)) return res.status(201).json({ id: id(), ok: true, emailSent: false });
   if (!req.body.full_name || !req.body.phone)
     return res
       .status(400)
@@ -138,6 +153,27 @@ app.post("/api/v1/public/applications", async (req, res) => {
   res.status(201).json({ id: x.id, ok: true, emailSent: email.sent });
 });
 app.post("/api/v1/public/web-vitals", (req, res) => res.sendStatus(204));
+app.post("/api/csp-report", (req, res) => {
+  const report = req.body?.["csp-report"] || req.body || {};
+  try {
+    db.prepare(
+      "INSERT INTO monitoring_events(id,level,source,event_type,message,metadata,created_at) VALUES(?,?,?,?,?,?,?)",
+    ).run(
+      id(),
+      "warning",
+      "csp",
+      "csp_violation",
+      String(report["violated-directive"] || "unknown directive").slice(0, 500),
+      JSON.stringify({
+        blockedUri: report["blocked-uri"],
+        documentUri: report["document-uri"],
+        sourceFile: report["source-file"],
+      }),
+      now(),
+    );
+  } catch {}
+  res.sendStatus(204);
+});
 app.get("/api/v1/public/jobs", (req, res) =>
   res.json(
     db
@@ -253,14 +289,42 @@ app.post(
 );
 app.get("/manifest.json", (req, res) =>
   res.json({
-    name: "Greece",
+    name: "Greece Maintenance & Staffing",
     short_name: "Greece",
     start_url: "/",
     display: "standalone",
     background_color: "#0B0E12",
     theme_color: "#C88A58",
+    icons: [{ src: "/favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
   }),
 );
+const SITE_ORIGIN = process.env.PUBLIC_APP_URL || "https://greece.up.railway.app";
+app.get("/robots.txt", (req, res) =>
+  res.type("text/plain").send(
+    `User-agent: *\nDisallow: /crm\nDisallow: /api/\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`,
+  ),
+);
+app.get("/sitemap.xml", (req, res) => {
+  const pages = [
+    "",
+    "/about",
+    "/process",
+    "/certifications",
+    "/applications",
+    "/contact",
+  ];
+  const urls = pages
+    .map(
+      (p) =>
+        `<url><loc>${SITE_ORIGIN}${p}</loc><changefreq>weekly</changefreq></url>`,
+    )
+    .join("");
+  res
+    .type("application/xml")
+    .send(
+      `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`,
+    );
+});
 app.get("/static/js/badge.js", (req, res) => res.type("js").send(""));
 app.get(
   ["/dashboard", "/login", "/register", "/forgot-password", "/reset-password"],

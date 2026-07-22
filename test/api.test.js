@@ -102,6 +102,7 @@ test("keeps global search and exports within role permissions", async () => {
     assert.equal(allowedExport.status, 200);
   } finally {
     db.prepare("DELETE FROM login_history WHERE user_id=?").run(userId);
+    db.prepare("DELETE FROM notifications WHERE user_id=?").run(userId);
     db.prepare("DELETE FROM users WHERE id=?").run(userId);
     db.prepare("DELETE FROM roles WHERE name=?").run(roleName);
   }
@@ -154,6 +155,7 @@ test("issues a one-time password reset token in development", async () => {
     );
   } finally {
     db.prepare("DELETE FROM login_history WHERE user_id=?").run(userId);
+    db.prepare("DELETE FROM notifications WHERE user_id=?").run(userId);
     db.prepare("DELETE FROM users WHERE id=?").run(userId);
   }
 });

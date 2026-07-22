@@ -89,6 +89,13 @@
     ></script>
     <script defer src="/contact-fix.js"></script>
     <script defer src="/site-fixes.js"></script>
+    <script>
+      if ("serviceWorker" in navigator && location.protocol !== "file:") {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js").catch(() => {});
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root">
