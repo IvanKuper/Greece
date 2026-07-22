@@ -343,7 +343,7 @@ app.use(
     setHeaders: (res, file) => {
       if (file.includes(`${path.sep}assets${path.sep}`))
         res.setHeader("Cache-Control", "public,max-age=31536000,immutable");
-      else if (file.endsWith(".html"))
+      else if (file.endsWith(".html") || path.basename(file) === "sw.js")
         res.setHeader("Cache-Control", "no-cache");
     },
   }),
