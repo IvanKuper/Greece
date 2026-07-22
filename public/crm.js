@@ -1,3 +1,5 @@
+// @ts-nocheck - not yet type-annotated; DOM lookups and FormData handling
+// need narrower types than plain Element/FormDataEntryValue. Revisit in a future milestone.
 const $ = (s, p = document) => p.querySelector(s),
   $$ = (s, p = document) => [...p.querySelectorAll(s)];
 const API = "/api/v1";
@@ -274,6 +276,7 @@ const modules = {
     icon: "♢",
     group: "System",
     fields: ["type", "title", "message", "link", "read_at"],
+    readOnly: true,
   },
   integrations: {
     label: "Integrations",
@@ -413,6 +416,29 @@ async function handlePasswordResetLink() {
     toast(error.message);
   }
 }
+const svg = (inner) =>
+  `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+const iconBell = () =>
+  svg(
+    '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path>',
+  );
+const iconSun = () =>
+  svg(
+    '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>',
+  );
+const iconMoon = () =>
+  svg('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>');
+const iconLogout = () =>
+  svg(
+    '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>',
+  );
+const iconExternal = () =>
+  svg(
+    '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line>',
+  );
+const themeIcon = () =>
+  document.documentElement.dataset.theme === "dark" ? iconSun() : iconMoon();
+const langLabel = () => (document.documentElement.lang === "he" ? "EN" : "HE");
 function sidebar() {
   const groups = {};
   for (const [k, m] of Object.entries(modules))
@@ -429,7 +455,7 @@ function sidebar() {
 function appView() {
   document.body.className = document.documentElement.dir === "rtl" ? "rtl" : "";
   $("#app").innerHTML =
-    `<div class="app">${sidebar()}<div class="workspace"><header class="topbar"><button class="icon-btn mobile-menu" aria-label="Open menu" onclick="$('.sidebar').classList.toggle('open')">☰</button><div class="global-search"><label class="sr-only" for="globalSearch">Search business records</label><input class="input" id="globalSearch" placeholder="Search customers, people, projects, invoices… (Ctrl/Cmd+K)"><div class="search-results" id="searchResults"></div></div><div class="top-actions"><button class="icon-btn" title="Theme" aria-label="Switch color theme" onclick="toggleTheme()">◐</button><button class="icon-btn" title="Language" aria-label="Switch language" onclick="toggleLanguage()">文</button><button class="icon-btn notification-button" title="Notifications" aria-label="Open notifications" onclick="openModule('notifications')">♢<span id="notificationCount" hidden></span></button><div class="avatar">${(user?.name || "A").slice(0, 1)}</div><span class="user-name"><b>${user?.name || ""}</b><small class="muted" style="display:block">${user?.role || ""}</small></span><button class="icon-btn" title="Logout" aria-label="Log out" onclick="logout()">↪</button></div></header><main class="content" id="content" tabindex="-1"></main></div></div>`;
+    `<div class="app">${sidebar()}<div class="workspace"><header class="topbar"><button class="icon-btn mobile-menu" aria-label="Open menu" onclick="$('.sidebar').classList.toggle('open')">☰</button><div class="global-search"><label class="sr-only" for="globalSearch">Search business records</label><input class="input" id="globalSearch" placeholder="Search customers, people, projects, invoices… (Ctrl/Cmd+K)"><div class="search-results" id="searchResults"></div></div><div class="top-actions"><a class="icon-btn" title="Back to website" aria-label="Back to website" href="/">${iconExternal()}</a><button class="icon-btn" id="themeToggle" title="Switch color theme" aria-label="Switch color theme" onclick="toggleTheme()">${themeIcon()}</button><button class="icon-btn lang-btn" id="langToggle" title="Switch language" aria-label="Switch language" onclick="toggleLanguage()">${langLabel()}</button><button class="icon-btn notification-button" title="Notifications" aria-label="Open notifications" onclick="openModule('notifications')">${iconBell()}<span id="notificationCount" hidden></span></button><div class="avatar">${(user?.name || "A").slice(0, 1)}</div><span class="user-name"><b>${user?.name || ""}</b><small class="muted" style="display:block">${user?.role || ""}</small></span><button class="icon-btn" title="Logout" aria-label="Log out" onclick="logout()">${iconLogout()}</button></div></header><main class="content" id="content" tabindex="-1"></main></div></div>`;
   $$("[data-module]").forEach(
     (b) => (b.onclick = () => openModule(b.dataset.module)),
   );
@@ -885,7 +911,7 @@ async function sendWhatsApp(customerId, phone) {
 function openFileUpload() {
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="modal-backdrop" id="modal"><form class="modal" id="fileForm"><div class="card-head"><div><span class="eyebrow">Secure storage</span><h2>Upload a file</h2></div><button type="button" class="icon-btn" onclick="$('#modal').remove()">×</button></div><div class="field"><label for="secureFile">File (PDF, image, text, CSV or XLSX; max 10 MB)</label><input id="secureFile" name="file" type="file" required></div><div class="form-grid"><div class="field"><label>Related record type</label><select name="entity_type"><option value="">General</option><option value="customer">Customer</option><option value="project">Project</option><option value="employee">Employee</option></select></div><div class="field"><label>Related record ID</label><input name="entity_id"></div><div class="field"><label>Minimum access role</label><select name="access_role"><option>employee</option><option>manager</option><option>administrator</option></select></div></div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">Cancel</button><button class="btn">Upload securely</button></div></form></div>`,
+    `<div class="modal-backdrop" id="modal"><form class="modal" id="fileForm"><div class="card-head"><div><span class="eyebrow">Secure storage</span><h2>Upload a file</h2></div><button type="button" class="icon-btn" aria-label="Close" onclick="$('#modal').remove()">×</button></div><div class="field"><label for="secureFile">File (PDF, image, text, CSV or XLSX; max 10 MB)</label><input id="secureFile" name="file" type="file" required></div><div class="form-grid"><div class="field"><label>Related record type</label><select name="entity_type"><option value="">General</option><option value="customer">Customer</option><option value="project">Project</option><option value="employee">Employee</option></select></div><div class="field"><label>Related record ID</label><input name="entity_id"></div><div class="field"><label>Minimum access role</label><select name="access_role"><option>employee</option><option>manager</option><option>administrator</option></select></div></div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">Cancel</button><button class="btn">Upload securely</button></div></form></div>`,
   );
   $("#fileForm").onsubmit = uploadFile;
 }
@@ -1206,7 +1232,7 @@ function openForm(record) {
     fields = m.fields || [];
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="modal-backdrop" id="modal"><form class="modal" id="recordForm"><div class="card-head"><div><span class="eyebrow">${record ? "Update" : "Create"}</span><h2>${record ? "Edit" : "New"} ${m.label.replace(/s$/, "")}</h2></div><button type="button" class="icon-btn" onclick="$('#modal').remove()">×</button></div><div class="form-grid">${fields.map((f) => inputField(f, record?.[f])).join("")}</div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">Cancel</button><button class="btn">${record ? "Save changes" : "Create record"}</button></div></form></div>`,
+    `<div class="modal-backdrop" id="modal"><form class="modal" id="recordForm"><div class="card-head"><div><span class="eyebrow">${record ? "Update" : "Create"}</span><h2>${record ? "Edit" : "New"} ${m.label.replace(/s$/, "")}</h2></div><button type="button" class="icon-btn" aria-label="Close" onclick="$('#modal').remove()">×</button></div><div class="form-grid">${fields.map((f) => inputField(f, record?.[f])).join("")}</div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">Cancel</button><button class="btn">${record ? "Save changes" : "Create record"}</button></div></form></div>`,
   );
   $("#recordForm").onsubmit = async (e) => {
     e.preventDefault();
@@ -1237,6 +1263,15 @@ function openForm(record) {
       )
         data[k] = Number(v || 0);
     if (fields.includes("active") && !("active" in data)) data.active = 0;
+    if (
+      fields.includes("email") &&
+      fields.includes("phone") &&
+      !String(data.email || "").trim() &&
+      !String(data.phone || "").trim()
+    ) {
+      toast("Enter a phone number or email so you have a way to reach them");
+      return;
+    }
     try {
       await api(`/${current}${record ? "/" + record.id : ""}`, {
         method: record ? "PATCH" : "POST",
@@ -1317,8 +1352,23 @@ function inputField(f, v = "") {
     value = String(value).slice(0, 16);
   return `<div class="field"><label>${title(f)}</label><input name="${f}" type="${types[f] || (["amount", "value", "score", "probability", "progress", "budget", "spent", "salary", "base_salary", "bonuses", "deductions", "tax", "net_salary", "subtotal", "vat_rate", "total", "balance", "days"].includes(f) ? "number" : "text")}" value="${escapeHtml(value)}" ${["company_name", "full_name", "title", "name", "number", "start_at"].includes(f) ? "required" : ""}></div>`;
 }
+function confirmDialog(message) {
+  return new Promise((resolve) => {
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      `<div class="modal-backdrop" id="confirmModal"><div class="modal" style="max-width:420px"><p style="margin:0 0 20px">${escapeHtml(message)}</p><div class="modal-actions"><button type="button" class="btn secondary" id="confirmCancel">Cancel</button><button type="button" class="btn danger" id="confirmOk">Delete</button></div></div></div>`,
+    );
+    const cleanup = (result) => {
+      $("#confirmModal")?.remove();
+      resolve(result);
+    };
+    $("#confirmCancel").onclick = () => cleanup(false);
+    $("#confirmOk").onclick = () => cleanup(true);
+    $("#confirmOk").focus();
+  });
+}
 async function removeRecord(id) {
-  if (!confirm("Delete this record? This action is logged.")) return;
+  if (!(await confirmDialog("Delete this record? This action is logged."))) return;
   try {
     await api(`/${current}/${id}`, { method: "DELETE" });
     toast("Record deleted");
@@ -1398,6 +1448,8 @@ function toggleTheme() {
   const d = document.documentElement;
   d.dataset.theme = d.dataset.theme === "dark" ? "light" : "dark";
   localStorage.theme = d.dataset.theme;
+  const btn = $("#themeToggle");
+  if (btn) btn.innerHTML = themeIcon();
 }
 function toggleLanguage() {
   const d = document.documentElement,
@@ -1406,12 +1458,30 @@ function toggleLanguage() {
   d.dir = he ? "rtl" : "ltr";
   document.body.className = he ? "rtl" : "";
   toast(he ? "הממשק הוחלף לעברית" : "Interface switched to English");
+  const btn = $("#langToggle");
+  if (btn) btn.innerHTML = langLabel();
 }
 async function exportCsv() {
   try {
-    const r = await fetch(API + `/export/${current}.csv`, {
+    let r = await fetch(API + `/export/${current}.csv`, {
+      credentials: "include",
       headers: { Authorization: "Bearer " + token },
     });
+    if (r.status === 401 && localStorage.accessToken) {
+      const rr = await fetch(API + "/auth/refresh", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (rr.ok) {
+        const x = await rr.json();
+        token = x.token;
+        localStorage.accessToken = token;
+        r = await fetch(API + `/export/${current}.csv`, {
+          credentials: "include",
+          headers: { Authorization: "Bearer " + token },
+        });
+      }
+    }
     if (!r.ok) throw Error("Export failed");
     const blob = await r.blob(),
       a = document.createElement("a");

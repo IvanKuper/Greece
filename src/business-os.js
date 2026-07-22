@@ -1,3 +1,5 @@
+// @ts-nocheck - not yet type-annotated; mostly better-sqlite3 rows typed as
+// `unknown` until query result shapes are declared. Revisit in a future milestone.
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");

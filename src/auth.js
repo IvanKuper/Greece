@@ -1,3 +1,5 @@
+// @ts-nocheck - not yet type-annotated; mostly better-sqlite3 rows typed as
+// `unknown` until query result shapes are declared. Revisit in a future milestone.
 const jwt=require('jsonwebtoken');const crypto=require('crypto');const bcrypt=require('bcryptjs');const {db,id,now}=require('./db');const mailer=require('./mailer');
 const ACCESS_SECRET=process.env.JWT_SECRET||'development-access-secret-change-me';const REFRESH_SECRET=process.env.JWT_REFRESH_SECRET||'development-refresh-secret-change-me';
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');

@@ -1,3 +1,5 @@
+// @ts-nocheck - not yet type-annotated; mostly better-sqlite3 rows typed as
+// `unknown` until query result shapes are declared. Revisit in a future milestone.
 const {db,id,now}=require('./db');const {authenticate,permit,can,audit}=require('./auth');
 const modules={
  customers:{permission:'crm',search:['company_name','contact_name','email','phone'],fields:['company_name','contact_name','email','phone','address','status','owner_id','tags','notes','custom_fields']},

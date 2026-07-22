@@ -29,7 +29,7 @@ const clickSubmit = (page) =>
     await page.waitForSelector("#stable-contact-form");
 
     const crmLink = await page.$('a[href="/crm"]');
-    assert.ok(crmLink, "Base44 navigation is missing the CRM link");
+    assert.ok(crmLink, "Homepage navigation is missing the CRM link");
     assert.ok(await page.$(".skip-link"));
     assert.ok(await page.$('#main-content[role="main"], main#main-content'));
     assert.ok(
@@ -38,7 +38,7 @@ const clickSubmit = (page) =>
           script.src.includes("/assets/index-ZcaRxVCl.js"),
         ),
       ),
-      "The original Base44 bundle is not loaded",
+      "The original homepage bundle is not loaded",
     );
 
     const publicA11y = await new AxePuppeteer(page).analyze();
@@ -74,8 +74,8 @@ const clickSubmit = (page) =>
       ),
       "Contact was not saved",
     );
-    assert.deepEqual(errors, [], "Base44 public home emitted browser errors");
-    console.log("✓ Original Base44 frontend, CRM link, contact form, and accessibility");
+    assert.deepEqual(errors, [], "Public home emitted browser errors");
+    console.log("✓ Original homepage frontend, CRM link, contact form, and accessibility");
 
     await page.goto(base + "/#jobs", { waitUntil: "networkidle0" });
     await page.waitForFunction(() =>
@@ -131,7 +131,7 @@ const clickSubmit = (page) =>
       assert.deepEqual(routeErrors, [], `${route} emitted browser errors`);
       await routePage.close();
     }
-    console.log("✓ Base44 public routes render and link to CRM");
+    console.log("✓ Public routes render and link to CRM");
 
     const navigationPage = await browser.newPage();
     await navigationPage.goto(base + "/process#about", {

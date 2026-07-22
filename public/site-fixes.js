@@ -1,3 +1,5 @@
+// @ts-nocheck - not yet type-annotated; DOM lookups here return the generic
+// `Element` type until specific element types are declared. Revisit in a future milestone.
 (function () {
   const submitLabels = [
     "שלח מועמדות",

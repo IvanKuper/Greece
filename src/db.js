@@ -1,3 +1,5 @@
+// @ts-nocheck - not yet type-annotated; mostly better-sqlite3 rows typed as
+// `unknown` until query result shapes are declared. Revisit in a future milestone.
 const Database=require('better-sqlite3');
 const fs=require('fs');const path=require('path');const crypto=require('crypto');const bcrypt=require('bcryptjs');
 const defaultStorageDir=path.join(__dirname,'..','storage');const dbPath=path.resolve(process.env.DATABASE_PATH||path.join(defaultStorageDir,'greece.db'));

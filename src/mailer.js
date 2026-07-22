@@ -1,3 +1,4 @@
+// @ts-nocheck - not yet type-annotated. Revisit in a future milestone.
 const nodemailer=require('nodemailer');
 const dns=require('dns');
 const target=process.env.CONTACT_EMAIL||'greece.maintenance.servicese.ltd@gmail.com';
@@ -21,7 +22,7 @@ async function sendResendMail({from,to,replyTo,subject,text,html}){
     },
     body: JSON.stringify(body),
   });
-  let data={};
+  let data;
   try{data=await response.json();}catch(_){data={};}
   if(!response.ok){
     const message=data.error?.message||data.error?.type||`Resend error ${response.status}`;

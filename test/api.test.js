@@ -8,7 +8,7 @@ const app = require("../src/app");
 const { db } = require("../src/db");
 let server, base, token, adminId, sessionId;
 const auth = () => ({ authorization: "Bearer " + token }),
-  json = (body) => ({ "content-type": "application/json", ...auth() });
+  json = () => ({ "content-type": "application/json", ...auth() });
 test.before(async () => {
   server = app.listen(0);
   await new Promise((r) => server.once("listening", r));
@@ -170,6 +170,14 @@ test("serves public jobs and CRM shell", async () => {
   assert.match(await applications.text(), /\/assets\/index-ZcaRxVCl\.js/);
   assert.match(await crm.text(), /Greece Business Platform/);
   assert.match(await crmDeep.text(), /Greece Business Platform/);
+});
+test("serves a sitemap with lastmod and priority for every page", async () => {
+  const r = await fetch(base + "/sitemap.xml"),
+    xml = await r.text();
+  assert.equal(r.status, 200);
+  assert.equal((xml.match(/<url>/g) || []).length, 6);
+  assert.match(xml, /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
+  assert.match(xml, /<priority>1\.0<\/priority>/);
 });
 test("publishes editable business information", async () => {
   const r = await fetch(base + "/api/v1/public/business"),
