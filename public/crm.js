@@ -212,6 +212,23 @@ const modules = {
     group: "Finance",
     fields: ["type", "category", "amount", "date", "description", "vat_rate"],
   },
+  quotes: {
+    label: "Quotes",
+    icon: "▧",
+    group: "Finance",
+    fields: [
+      "number",
+      "title",
+      "customer_id",
+      "valid_until",
+      "status",
+      "total",
+      "subtotal",
+      "vat_rate",
+      "vat_amount",
+      "notes",
+    ],
+  },
   invoices: {
     label: "Invoices",
     icon: "▤",
@@ -345,6 +362,10 @@ const WORD_HE = {
   transactions: "תנועות כספיות",
   finance: "כספים",
   invoices: "חשבוניות",
+  quotes: "הצעות מחיר",
+  valid_until: "בתוקף עד",
+  expired: "פג תוקף",
+  converted: "הומר לחשבונית",
   "bank accounts": "חשבונות בנק",
   "reports & exports": "דוחות וייצוא",
   "job listings": "משרות פנויות",
@@ -848,6 +869,16 @@ const PHRASE_HE = {
   "Passkey sign-in was cancelled": "ההתחברות עם מפתח הגישה בוטלה",
   "CSV exported": "ה-CSV יוצא",
   "Skip to main content": "דלג לתוכן הראשי",
+  "Convert to invoice": "המר לחשבונית",
+  "Sending quote…": "שולח הצעת מחיר…",
+  "Quote emailed to customer": "הצעת המחיר נשלחה ללקוח באימייל",
+  "Convert quote to invoice": "המר הצעת מחיר לחשבונית",
+  "Invoice number": "מספר חשבונית",
+  "Due date": "תאריך יעד לתשלום",
+  "Create invoice": "צור חשבונית",
+  "Invoice created from quote": "החשבונית נוצרה מהצעת המחיר",
+  "Copy link": "העתק קישור",
+  "Link copied to clipboard": "הקישור הועתק ללוח",
 };
 function tr(s) {
   return (lang === "he" && PHRASE_HE[s]) || s;
@@ -1629,6 +1660,46 @@ async function emailInvoice(id) {
     toast(e.message);
   }
 }
+async function emailQuote(id) {
+  try {
+    toast(tr("Sending quote…"));
+    await api(`/quotes/${id}/email`, { method: "POST", body: "{}" });
+    toast(tr("Quote emailed to customer"));
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function convertQuoteToInvoice(quoteId) {
+  const data = await promptForm(
+    tr("Convert quote to invoice"),
+    [
+      { name: "number", label: tr("Invoice number"), required: true },
+      { name: "due_date", label: tr("Due date"), type: "date" },
+    ],
+    tr("Create invoice"),
+  );
+  if (!data || !data.number) return;
+  try {
+    await api(`/quotes/${quoteId}/convert`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    toast(tr("Invoice created from quote"));
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function copyQuoteLink(token) {
+  const url = `${location.origin}/quote.html?token=${token}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    toast(tr("Link copied to clipboard"));
+  } catch {
+    toast(url);
+  }
+}
 function downloadBusinessReport() {
   return downloadProtected(
     "/reports/business.xlsx",
@@ -2006,6 +2077,8 @@ function rowActions(r, m) {
         ? `<button class="btn secondary" onclick="employee360('${r.id}')">360°</button> `
         : current === "invoices"
         ? `<button class="btn secondary" onclick="downloadProtected('/invoices/${r.id}/pdf','${escapeJs(r.number)}.pdf')">${tr("PDF")}</button> <button class="btn secondary" onclick="emailInvoice('${r.id}')">${tr("Email")}</button> `
+        : current === "quotes"
+        ? `<button class="btn secondary" onclick="downloadProtected('/quotes/${r.id}/pdf','${escapeJs(r.number)}.pdf')">${tr("PDF")}</button> <button class="btn secondary" onclick="emailQuote('${r.id}')">${tr("Email")}</button> <button class="btn secondary" onclick="copyQuoteLink('${escapeJs(r.public_token)}')">${tr("Copy link")}</button> ${r.status === "accepted" ? `<button class="btn" onclick="convertQuoteToInvoice('${r.id}')">${tr("Convert to invoice")}</button> ` : ""}`
         : current === "documents"
           ? `<button class="btn secondary" onclick="downloadProtected('/files/${r.id}/download','${escapeJs(r.name)}')">${tr("Download")}</button> `
           : current === "notifications" && !r.read_at
@@ -2073,7 +2146,7 @@ function openForm(record) {
     "beforeend",
     `<div class="modal-backdrop" id="modal"><form class="modal" id="recordForm"><div class="card-head"><div><span class="eyebrow">${record ? tr("Update") : tr("Create")}</span><h2>${record ? tr("Edit") : tr("New")} ${lang === "he" ? title(m.label) : m.label.replace(/s$/, "")}</h2></div><button type="button" class="icon-btn" aria-label="${tr("Close")}" onclick="$('#modal').remove()">×</button></div><div class="form-grid">${fields.map((f) => inputField(f, record?.[f])).join("")}</div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">${tr("Cancel")}</button><button class="btn">${record ? tr("Save changes") : tr("Create record")}</button></div></form></div>`,
   );
-  if (current === "invoices") wireInvoiceVatCalculation();
+  if (current === "invoices" || current === "quotes") wireVatCalculation();
   wireNamePickers();
   $("#recordForm").onsubmit = async (e) => {
     e.preventDefault();
@@ -2151,7 +2224,7 @@ async function wireNamePickers() {
     }
   }
 }
-function wireInvoiceVatCalculation() {
+function wireVatCalculation() {
   const subtotalEl = $('#recordForm input[name="subtotal"]'),
     vatRateEl = $('#recordForm input[name="vat_rate"]'),
     vatAmountEl = $('#recordForm input[name="vat_amount"]'),
@@ -2183,6 +2256,7 @@ const STATUS_OPTIONS = {
   leave_requests: ["pending", "approved", "rejected"],
   payroll: ["draft", "processed", "paid"],
   invoices: ["draft", "sent", "paid", "overdue", "cancelled"],
+  quotes: ["draft", "sent", "accepted", "rejected", "expired", "converted"],
   job_listings: ["active", "closed", "draft"],
   job_applications: ["pending", "reviewing", "interviewed", "hired", "rejected"],
 };
@@ -2197,6 +2271,7 @@ function inputField(f, v = "") {
     date: "date",
     due_date: "date",
     issue_date: "date",
+    valid_until: "date",
     expected_close: "date",
     start_date: "date",
     end_date: "date",

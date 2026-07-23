@@ -105,6 +105,75 @@ function generateInvoicePdfBuffer(inv, items, cfg) {
     doc.end();
   });
 }
+function drawQuotePdf(doc, q, items, cfg) {
+  doc.fillColor("#b86f3c").fontSize(24).text(cfg.company_name || "Greece");
+  doc
+    .fillColor("#172033")
+    .fontSize(10)
+    .text(`${cfg.address || ""}\n${cfg.phone || ""} | ${cfg.email || ""}`);
+  doc
+    .moveDown(2)
+    .fontSize(22)
+    .text(`QUOTE ${q.number}`, { align: "right" });
+  doc
+    .fontSize(10)
+    .text(
+      `Issue: ${String(q.created_at).slice(0, 10)}\nValid until: ${q.valid_until || "-"}\nStatus: ${String(q.status).toUpperCase()}`,
+      { align: "right" },
+    );
+  doc
+    .moveDown()
+    .fontSize(12)
+    .text(
+      `Prepared for: ${q.company_name || "Customer"}\n${q.contact_name || ""}\n${q.address || ""}`,
+    );
+  doc.moveDown().fontSize(14).text(q.title || "");
+  doc.moveDown(2);
+  if (items.length) {
+    for (const item of items)
+      doc
+        .fontSize(10)
+        .text(
+          `${item.description}   ${item.quantity} x ${Number(item.unit_price).toFixed(2)}   ${Number(item.total).toFixed(2)} ILS`,
+        );
+  } else
+    doc.fontSize(10).text("Professional staffing and maintenance services");
+  doc
+    .moveDown(2)
+    .fontSize(11)
+    .text(`Subtotal: ${Number(q.subtotal).toFixed(2)} ILS`, {
+      align: "right",
+    })
+    .text(`VAT (${q.vat_rate}%): ${Number(q.vat_amount).toFixed(2)} ILS`, {
+      align: "right",
+    })
+    .fillColor("#b86f3c")
+    .fontSize(15)
+    .text(`Total: ${Number(q.total).toFixed(2)} ILS`, { align: "right" });
+  doc
+    .moveDown(4)
+    .fillColor("#6f7889")
+    .fontSize(9)
+    .text(
+      "This quote is an estimate and is not a bill. Prices are valid until the date shown above.",
+      { align: "center" },
+    );
+}
+function generateQuotePdfBuffer(q, items, cfg) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+        size: "A4",
+        margin: 48,
+        info: { Title: `Quote ${q.number}`, Author: cfg.company_name },
+      }),
+      chunks = [];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+    drawQuotePdf(doc, q, items, cfg);
+    doc.end();
+  });
+}
 function notify(userId, type, title, message, link) {
   const ts = now();
   db.prepare(
@@ -808,6 +877,340 @@ function businessOSRoutes(app) {
       res.json({ ok: true });
     },
   );
+  const QUOTE_FIELDS = [
+    "number",
+    "customer_id",
+    "lead_id",
+    "title",
+    "status",
+    "subtotal",
+    "vat_rate",
+    "vat_amount",
+    "total",
+    "valid_until",
+    "notes",
+  ];
+  app.get(
+    "/api/v1/quotes",
+    authenticate,
+    permit("invoices.read"),
+    (req, res) => {
+      const page = Math.max(1, Number(req.query.page) || 1),
+        limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20)),
+        params = [];
+      let where = "1=1";
+      if (req.query.search) {
+        where += " AND (number LIKE ? OR title LIKE ? OR status LIKE ? OR notes LIKE ?)";
+        params.push(...Array(4).fill(`%${req.query.search}%`));
+      }
+      for (const k of ["status", "customer_id"])
+        if (req.query[k]) {
+          where += ` AND ${k}=?`;
+          params.push(req.query[k]);
+        }
+      const sort = QUOTE_FIELDS.includes(req.query.sort)
+          ? req.query.sort
+          : "created_at",
+        dir = req.query.dir === "asc" ? "ASC" : "DESC";
+      const total = db.prepare(`SELECT count(*) n FROM quotes WHERE ${where}`).get(
+        ...params,
+      ).n;
+      const data = db
+        .prepare(
+          `SELECT * FROM quotes WHERE ${where} ORDER BY ${sort} ${dir} LIMIT ? OFFSET ?`,
+        )
+        .all(...params, limit, (page - 1) * limit);
+      res.json({ data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    },
+  );
+  app.post(
+    "/api/v1/quotes",
+    authenticate,
+    permit("invoices.create"),
+    (req, res) => {
+      const data = Object.fromEntries(
+        QUOTE_FIELDS.filter((k) => req.body[k] !== undefined).map((k) => [
+          k,
+          req.body[k],
+        ]),
+      );
+      if (!data.number || !data.title)
+        return res
+          .status(400)
+          .json({ error: { message: "A number and title are required" } });
+      const qid = id(),
+        ts = now(),
+        row = {
+          id: qid,
+          ...data,
+          public_token: crypto.randomBytes(24).toString("hex"),
+          created_by: req.user.sub,
+          created_at: ts,
+          updated_at: ts,
+        },
+        keys = Object.keys(row);
+      db.prepare(
+        `INSERT INTO quotes (${keys.join(",")}) VALUES (${keys.map(() => "?").join(",")})`,
+      ).run(...keys.map((k) => row[k]));
+      audit(req, "quote.create", "quote", qid, null, row);
+      res.status(201).json(db.prepare("SELECT * FROM quotes WHERE id=?").get(qid));
+    },
+  );
+  app.patch(
+    "/api/v1/quotes/:id",
+    authenticate,
+    permit("invoices.update"),
+    (req, res) => {
+      const before = db.prepare("SELECT * FROM quotes WHERE id=?").get(req.params.id);
+      if (!before) return res.sendStatus(404);
+      const data = {
+          ...Object.fromEntries(
+            QUOTE_FIELDS.filter((k) => req.body[k] !== undefined).map((k) => [
+              k,
+              req.body[k],
+            ]),
+          ),
+          updated_at: now(),
+        },
+        keys = Object.keys(data);
+      db.prepare(
+        `UPDATE quotes SET ${keys.map((k) => `${k}=?`).join(",")} WHERE id=?`,
+      ).run(...keys.map((k) => data[k]), req.params.id);
+      const after = db.prepare("SELECT * FROM quotes WHERE id=?").get(req.params.id);
+      audit(req, "quote.update", "quote", req.params.id, before, after);
+      res.json(after);
+    },
+  );
+  app.delete(
+    "/api/v1/quotes/:id",
+    authenticate,
+    permit("invoices.delete"),
+    (req, res) => {
+      const before = db.prepare("SELECT * FROM quotes WHERE id=?").get(req.params.id);
+      if (!before) return res.sendStatus(404);
+      db.prepare("DELETE FROM quotes WHERE id=?").run(req.params.id);
+      audit(req, "quote.delete", "quote", req.params.id, before, null);
+      res.sendStatus(204);
+    },
+  );
+  app.get(
+    "/api/v1/quotes/:id/pdf",
+    authenticate,
+    permit("invoices.read"),
+    (req, res) => {
+      const q = db
+        .prepare(
+          "SELECT q.*,c.company_name,c.contact_name,c.email,c.address FROM quotes q LEFT JOIN customers c ON c.id=q.customer_id WHERE q.id=?",
+        )
+        .get(req.params.id);
+      if (!q) return res.sendStatus(404);
+      const items = db
+          .prepare("SELECT * FROM quote_items WHERE quote_id=?")
+          .all(q.id),
+        cfg = settings(),
+        doc = new PDFDocument({
+          size: "A4",
+          margin: 48,
+          info: { Title: `Quote ${q.number}`, Author: cfg.company_name },
+        });
+      res.type("application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${q.number}.pdf"`,
+      );
+      doc.pipe(res);
+      drawQuotePdf(doc, q, items, cfg);
+      doc.end();
+      audit(req, "quote.pdf", "quote", q.id, null, { number: q.number });
+    },
+  );
+  app.post(
+    "/api/v1/quotes/:id/email",
+    authenticate,
+    permit("invoices.update"),
+    async (req, res) => {
+      const q = db
+        .prepare(
+          "SELECT q.*,c.company_name,c.contact_name,c.email,c.address FROM quotes q LEFT JOIN customers c ON c.id=q.customer_id WHERE q.id=?",
+        )
+        .get(req.params.id);
+      if (!q) return res.sendStatus(404);
+      if (!q.email)
+        return res.status(400).json({
+          error: { message: "This customer has no email address on file" },
+        });
+      const items = db
+          .prepare("SELECT * FROM quote_items WHERE quote_id=?")
+          .all(q.id),
+        cfg = settings(),
+        pdfBuffer = await generateQuotePdfBuffer(q, items, cfg),
+        origin = process.env.PUBLIC_APP_URL || `${req.protocol}://${req.get("host")}`,
+        viewUrl = `${origin.replace(/\/$/, "")}/quote.html?token=${q.public_token}`;
+      const result = await mailer.sendQuoteEmail({
+        email: q.email,
+        customerName: q.company_name || q.contact_name || "Customer",
+        quoteNumber: q.number,
+        total: q.total,
+        validUntil: q.valid_until,
+        companyName: cfg.company_name,
+        viewUrl,
+        pdfBuffer,
+      });
+      if (!result.sent)
+        return res.status(502).json({
+          error: {
+            message: "Failed to send email: " + (result.reason || "unknown error"),
+          },
+        });
+      if (q.status === "draft")
+        db.prepare("UPDATE quotes SET status='sent',updated_at=? WHERE id=?").run(
+          now(),
+          q.id,
+        );
+      audit(req, "quote.email", "quote", q.id, null, {
+        number: q.number,
+        to: q.email,
+      });
+      res.json({ ok: true });
+    },
+  );
+  app.post(
+    "/api/v1/quotes/:id/convert",
+    authenticate,
+    permit("invoices.create"),
+    (req, res) => {
+      const q = db.prepare("SELECT * FROM quotes WHERE id=?").get(req.params.id);
+      if (!q) return res.sendStatus(404);
+      if (q.converted_invoice_id)
+        return res.status(400).json({
+          error: { message: "This quote has already been converted" },
+        });
+      const { number, due_date } = req.body;
+      if (!number)
+        return res
+          .status(400)
+          .json({ error: { message: "An invoice number is required" } });
+      const invId = id(),
+        ts = now();
+      db.prepare(
+        "INSERT INTO invoices(id,number,customer_id,issue_date,due_date,subtotal,vat_rate,vat_amount,total,status,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      ).run(
+        invId,
+        number,
+        q.customer_id,
+        ts.slice(0, 10),
+        due_date || null,
+        q.subtotal,
+        q.vat_rate,
+        q.vat_amount,
+        q.total,
+        "draft",
+        `Converted from quote ${q.number}`,
+        ts,
+        ts,
+      );
+      db.prepare(
+        "UPDATE quotes SET status='converted',converted_invoice_id=?,updated_at=? WHERE id=?",
+      ).run(invId, ts, q.id);
+      audit(req, "quote.convert", "quote", q.id, null, {
+        invoiceId: invId,
+        invoiceNumber: number,
+      });
+      res.json(db.prepare("SELECT * FROM invoices WHERE id=?").get(invId));
+    },
+  );
+  app.get("/api/v1/public/quotes/:token", (req, res) => {
+    const q = db
+      .prepare(
+        "SELECT q.*,c.company_name,c.contact_name,c.address FROM quotes q LEFT JOIN customers c ON c.id=q.customer_id WHERE q.public_token=?",
+      )
+      .get(req.params.token);
+    if (!q) return res.sendStatus(404);
+    if (!q.viewed_at)
+      db.prepare("UPDATE quotes SET viewed_at=? WHERE id=?").run(now(), q.id);
+    const items = db
+        .prepare("SELECT * FROM quote_items WHERE quote_id=? ORDER BY sort_order")
+        .all(q.id),
+      cfg = settings();
+    res.json({
+      quote: {
+        number: q.number,
+        title: q.title,
+        status: q.status,
+        subtotal: q.subtotal,
+        vat_rate: q.vat_rate,
+        vat_amount: q.vat_amount,
+        total: q.total,
+        valid_until: q.valid_until,
+        notes: q.notes,
+        created_at: q.created_at,
+        accepted_at: q.accepted_at,
+        company_name: q.company_name,
+        contact_name: q.contact_name,
+      },
+      items,
+      company: {
+        name: cfg.company_name,
+        phone: cfg.phone,
+        email: cfg.email,
+        address: cfg.address,
+      },
+    });
+  });
+  app.post("/api/v1/public/quotes/:token/accept", (req, res) => {
+    const q = db.prepare("SELECT * FROM quotes WHERE public_token=?").get(
+      req.params.token,
+    );
+    if (!q) return res.sendStatus(404);
+    if (q.status === "converted")
+      return res.status(400).json({
+        error: { message: "This quote has already been converted to an invoice" },
+      });
+    if (q.accepted_at)
+      return res
+        .status(400)
+        .json({ error: { message: "This quote has already been accepted" } });
+    if (q.valid_until && q.valid_until < now().slice(0, 10))
+      return res.status(400).json({ error: { message: "This quote has expired" } });
+    const signedName = String(req.body.signed_name || "").trim();
+    if (!signedName)
+      return res
+        .status(400)
+        .json({ error: { message: "Please type your name to accept" } });
+    const ts = now();
+    db.prepare(
+      "UPDATE quotes SET status='accepted',accepted_at=?,signed_name=?,signed_ip=?,updated_at=? WHERE id=?",
+    ).run(ts, signedName, req.ip, ts, q.id);
+    const admins = db
+      .prepare(
+        "SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE r.name IN ('administrator','super_admin')",
+      )
+      .all();
+    for (const admin of admins)
+      notify(
+        admin.id,
+        "finance",
+        "Quote accepted",
+        `${q.number} was accepted and signed by ${signedName}.`,
+        "/crm#quotes",
+      );
+    res.json({ ok: true });
+  });
+  app.post("/api/v1/public/quotes/:token/reject", (req, res) => {
+    const q = db.prepare("SELECT * FROM quotes WHERE public_token=?").get(
+      req.params.token,
+    );
+    if (!q) return res.sendStatus(404);
+    if (q.status === "converted" || q.accepted_at)
+      return res
+        .status(400)
+        .json({ error: { message: "This quote has already been accepted" } });
+    db.prepare("UPDATE quotes SET status='rejected',updated_at=? WHERE id=?").run(
+      now(),
+      q.id,
+    );
+    res.json({ ok: true });
+  });
   app.get(
     "/api/v1/reports/business.xlsx",
     authenticate,

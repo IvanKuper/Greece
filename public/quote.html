@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>הצעת מחיר — Greece</title>
+    <link href="/images/logo.png" rel="icon" type="image/png" />
+    <style>
+      :root {
+        --bg: #0b0e12;
+        --surface: #12161d;
+        --surface2: #171c25;
+        --text: #f2ede6;
+        --muted: #9aa2ae;
+        --line: #232935;
+        --primary: #b86f3c;
+        --green: #24976f;
+        --red: #d05252;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+        padding: 24px 16px 60px;
+      }
+      .wrap {
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 28px;
+        font-weight: 800;
+        font-size: 20px;
+        letter-spacing: 1px;
+      }
+      .brand img {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 28px;
+        margin-bottom: 20px;
+      }
+      .eyebrow {
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      h1 {
+        font-size: 26px;
+        margin: 8px 0 4px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .badge {
+        display: inline-flex;
+        padding: 5px 12px;
+        border-radius: 999px;
+        background: #486fce16;
+        color: #7fa0ff;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .badge.accepted {
+        background: #24976f16;
+        color: var(--green);
+      }
+      .badge.rejected {
+        background: #d0525216;
+        color: var(--red);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 18px 0;
+      }
+      td {
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      td:last-child {
+        text-align: left;
+        white-space: nowrap;
+      }
+      .totals td {
+        border-bottom: none;
+        padding: 4px 0;
+      }
+      .totals .grand td {
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--primary);
+        padding-top: 10px;
+      }
+      .field {
+        margin-bottom: 16px;
+      }
+      label {
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      input {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--surface2);
+        color: var(--text);
+        font-size: 15px;
+      }
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      button {
+        flex: 1;
+        padding: 13px;
+        border-radius: 10px;
+        border: none;
+        font-weight: 700;
+        font-size: 15px;
+        cursor: pointer;
+      }
+      .btn-accept {
+        background: var(--primary);
+        color: #fff;
+      }
+      .btn-reject {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--line);
+      }
+      .btn-accept:disabled,
+      .btn-reject:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .state-icon {
+        font-size: 40px;
+        margin-bottom: 10px;
+      }
+      #error {
+        color: var(--red);
+        font-size: 14px;
+        min-height: 20px;
+      }
+      .center {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="brand"><img alt="" src="/images/logo.png" />GREECE</div>
+      <div id="app" class="card center"><p class="muted">טוען הצעת מחיר…</p></div>
+    </div>
+    <script src="/quote.js"></script>
+  </body>
+</html>
