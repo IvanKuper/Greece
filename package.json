@@ -33,7 +33,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@axe-core/puppeteer": "^4.10.2",
+    "@axe-core/puppeteer": "^4.12.1",
     "@eslint/js": "^10.0.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
