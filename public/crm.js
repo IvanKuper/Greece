@@ -1042,7 +1042,7 @@ async function render() {
 }
 async function dashboard() {
   const el = $("#content");
-  el.innerHTML = `<div class="empty">${tr("Loading executive dashboard…")}</div>`;
+  el.innerHTML = skeletonDashboard();
   try {
     const [x, emailStatus] = await Promise.all([
         api("/dashboard"),
@@ -1415,7 +1415,7 @@ async function editSetting(key) {
 }
 async function customer360(customerId) {
   const el = $("#content");
-  el.innerHTML = `<div class="empty">${tr("Loading customer workspace…")}</div>`;
+  el.innerHTML = skeleton360();
   try {
     const x = await api(`/customers/${customerId}/360`),
       c = x.customer;
@@ -1469,7 +1469,7 @@ async function customer360(customerId) {
 }
 async function employee360(employeeId) {
   const el = $("#content");
-  el.innerHTML = `<div class="empty">${tr("Loading employee workspace…")}</div>`;
+  el.innerHTML = skeleton360();
   try {
     const x = await api(`/employees/${employeeId}/360`),
       e = x.employee,
@@ -1861,6 +1861,29 @@ function pageHead(titleText, desc, actions = "") {
 function errorView(e) {
   return `<div class="empty">${escapeHtml(e.message)}</div>`;
 }
+function skeletonKpis(n = 4) {
+  return `<div class="skeleton-kpis">${Array(n).fill('<div class="skeleton skeleton-kpi"></div>').join("")}</div>`;
+}
+function skeletonRows(n = 6) {
+  return Array(n)
+    .fill('<div class="skeleton skeleton-row"></div>')
+    .join("");
+}
+function skeletonPageHead(titleWidth = 220, descWidth = 320) {
+  return `<div class="page-head"><div><div class="skeleton skeleton-title" style="width:${titleWidth}px"></div><div class="skeleton skeleton-line" style="width:${descWidth}px"></div></div></div>`;
+}
+function skeletonTableView() {
+  return `${skeletonPageHead()}<section class="card table-card" style="padding:20px">${skeletonRows(7)}</section>`;
+}
+function skeletonDashboard() {
+  return `${skeletonPageHead(280, 340)}${skeletonKpis(8)}<div class="dashboard-grid"><div class="card skeleton-card"></div><div class="card skeleton-card"></div></div>`;
+}
+function skeleton360() {
+  return `${skeletonPageHead(240, 320)}${skeletonKpis(4)}<div class="dashboard-grid"><div class="card skeleton-card"></div><div class="card skeleton-card"></div></div>`;
+}
+function skeletonPipeline() {
+  return `${skeletonPageHead(180, 300)}<div class="pipeline">${Array(5).fill('<div class="skeleton skeleton-card" style="min-height:420px"></div>').join("")}</div>`;
+}
 function cashChart(rows) {
   if (!rows.length) rows = [{ month: "Now", income: 1, expenses: 0 }];
   const max = Math.max(...rows.flatMap((x) => [x.income, x.expenses]), 1);
@@ -1870,7 +1893,7 @@ let selectedIds = new Set();
 async function tableView() {
   const el = $("#content"),
     m = modules[current];
-  el.innerHTML = `<div class="empty">${tr("Loading data…")}</div>`;
+  el.innerHTML = skeletonTableView();
   selectedIds = new Set();
   try {
     const x = await api(
@@ -2019,7 +2042,7 @@ async function decideLeave(id, decision) {
 }
 async function pipeline() {
   const el = $("#content");
-  el.innerHTML = `<div class="empty">${tr("Loading sales pipeline…")}</div>`;
+  el.innerHTML = skeletonPipeline();
   try {
     const x = await api("/deals?limit=100");
     cache.deals = x.data;
