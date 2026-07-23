@@ -1198,4 +1198,54 @@ async function checkOverdueInvoices() {
     console.error("Overdue invoice check failed:", error.message);
   }
 }
-module.exports = { businessOSRoutes, createBackup, checkOverdueInvoices };
+const BACKUP_RETENTION = 30;
+function pruneOldBackups() {
+  const stale = db
+    .prepare(
+      "SELECT * FROM backup_runs ORDER BY created_at DESC LIMIT -1 OFFSET ?",
+    )
+    .all(BACKUP_RETENTION);
+  for (const b of stale) {
+    if (b.filename)
+      try {
+        fs.unlinkSync(path.join(backupDir, path.basename(b.filename)));
+      } catch {
+        /* file already gone or never completed, nothing to remove */
+      }
+    db.prepare("DELETE FROM backup_runs WHERE id=?").run(b.id);
+  }
+}
+async function runScheduledBackupIfDue() {
+  try {
+    const last = db
+      .prepare(
+        "SELECT created_at FROM backup_runs WHERE status='completed' ORDER BY created_at DESC LIMIT 1",
+      )
+      .get();
+    if (last && Date.now() - new Date(last.created_at).getTime() < 24 * 60 * 60 * 1000)
+      return;
+    const row = await createBackup(null);
+    const admins = db
+      .prepare(
+        "SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE r.name IN ('administrator','super_admin')",
+      )
+      .all();
+    for (const admin of admins)
+      notify(
+        admin.id,
+        "backup",
+        "Scheduled backup completed",
+        `${row.filename} (${Math.round((row.size || 0) / 1024)} KB)`,
+        "/crm#backups",
+      );
+    pruneOldBackups();
+  } catch (error) {
+    console.error("Scheduled backup failed:", error.message);
+  }
+}
+module.exports = {
+  businessOSRoutes,
+  createBackup,
+  checkOverdueInvoices,
+  runScheduledBackupIfDue,
+};

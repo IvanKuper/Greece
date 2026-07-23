@@ -824,8 +824,8 @@ const PHRASE_HE = {
   min: "דקות",
   "Unresolved events": "אירועים שלא טופלו",
   "Provider health": "תקינות ספקים",
-  "Create and retrieve checksum-verified point-in-time database backups.":
-    "צור ואחזר גיבויי מסד נתונים מאומתי checksum לנקודת זמן.",
+  "Runs automatically once every 24 hours; the last 30 are kept. Create one on demand or retrieve a checksum-verified point-in-time copy below.":
+    "רץ אוטומטית אחת ל-24 שעות; 30 הגיבויים האחרונים נשמרים. ניתן ליצור גיבוי לפי דרישה או לאחזר עותק מאומת checksum לנקודת זמן למטה.",
   "New backup": "גיבוי חדש",
   "No backups yet": "אין עדיין גיבויים",
   "Creating backup…": "יוצר גיבוי…",
@@ -1357,7 +1357,7 @@ async function backupsView() {
   const el = $("#content");
   try {
     const rows = await api("/backups");
-    el.innerHTML = `${pageHead(title("Backups"), tr("Create and retrieve checksum-verified point-in-time database backups."), `<button class="btn" onclick="createBackup()">＋ ${tr("New backup")}</button>`)}<div class="card">${rows.map((b) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(b.filename)}</b><small class="muted" style="display:block">${date(b.created_at)} · ${Math.round((b.size || 0) / 1024)} KB · ${escapeHtml((b.checksum || "").slice(0, 12))}</small></div><span class="badge ${escapeHtml(b.status)}">${title(b.status)}</span>${b.status === "completed" ? `<button class="btn secondary" onclick="downloadProtected('/backups/${b.id}/download','${escapeJs(b.filename)}')">${tr("Download")}</button>` : ""}</div>`).join("") || `<div class="empty">${tr("No backups yet")}</div>`}</div>`;
+    el.innerHTML = `${pageHead(title("Backups"), tr("Runs automatically once every 24 hours; the last 30 are kept. Create one on demand or retrieve a checksum-verified point-in-time copy below."), `<button class="btn" onclick="createBackup()">＋ ${tr("New backup")}</button>`)}<div class="card">${rows.map((b) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(b.filename)}</b><small class="muted" style="display:block">${date(b.created_at)} · ${Math.round((b.size || 0) / 1024)} KB · ${escapeHtml((b.checksum || "").slice(0, 12))}</small></div><span class="badge ${escapeHtml(b.status)}">${title(b.status)}</span>${b.status === "completed" ? `<button class="btn secondary" onclick="downloadProtected('/backups/${b.id}/download','${escapeJs(b.filename)}')">${tr("Download")}</button>` : ""}</div>`).join("") || `<div class="empty">${tr("No backups yet")}</div>`}</div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
