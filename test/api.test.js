@@ -140,7 +140,7 @@ test("issues a one-time password reset token in development", async () => {
     const reset = await fetch(base + "/api/v1/auth/password/reset", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ token: developmentToken, password: "A-new-unique-password" }),
+      body: JSON.stringify({ token: developmentToken, password: "A-new-unique-password9" }),
     });
     assert.equal(reset.status, 200);
     assert.equal(
@@ -148,7 +148,7 @@ test("issues a one-time password reset token in development", async () => {
         await fetch(base + "/api/v1/auth/login", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ email, password: "A-new-unique-password" }),
+          body: JSON.stringify({ email, password: "A-new-unique-password9" }),
         })
       ).status,
       200,

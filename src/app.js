@@ -12,6 +12,7 @@ const { db, id, now } = require("./db");
 const { authRoutes } = require("./auth");
 const { apiRoutes } = require("./api");
 const mailer = require("./mailer");
+const push = require("./push");
 const { businessOSRoutes } = require("./business-os");
 const app = express();
 app.set("trust proxy", 1);
@@ -22,12 +23,16 @@ if (process.env.NODE_ENV === "production") {
     res.redirect(301, `https://${req.get("host")}${req.originalUrl}`);
   });
 }
+app.use((req, res, next) => {
+  res.locals.nonce = crypto.randomBytes(16).toString("base64");
+  next();
+});
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", (req, res) => `'nonce-${res.locals.nonce}'`],
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
@@ -121,6 +126,13 @@ app.post("/api/v1/public/leads", publicFormLimiter, async (req, res) => {
     console.error("Contact email failed:", error);
     email = { sent: false, reason: "SMTP_ERROR" };
   }
+  push
+    .sendToAdmins({
+      title: "New lead",
+      body: `${x.full_name}${x.company ? " · " + x.company : ""}`,
+      url: "/crm#leads",
+    })
+    .catch(() => {});
   res.status(201).json({ id: x.id, ok: true, emailSent: email.sent });
 });
 app.post("/api/v1/public/applications", publicFormLimiter, async (req, res) => {
@@ -152,6 +164,13 @@ app.post("/api/v1/public/applications", publicFormLimiter, async (req, res) => {
     console.error("Application email failed:", error.message);
     email = { sent: false, reason: "SMTP_ERROR" };
   }
+  push
+    .sendToAdmins({
+      title: "New job application",
+      body: `${x.full_name}${x.job_title ? " · " + x.job_title : ""}`,
+      url: "/crm#job_applications",
+    })
+    .catch(() => {});
   res.status(201).json({ id: x.id, ok: true, emailSent: email.sent });
 });
 app.post("/api/v1/public/web-vitals", (req, res) => res.sendStatus(204));
@@ -332,12 +351,16 @@ app.get(
   ["/dashboard", "/login", "/register", "/forgot-password", "/reset-password"],
   (req, res) => res.redirect(302, "/crm"),
 );
-app.get("/crm", (req, res) =>
-  res.sendFile(path.join(__dirname, "..", "public", "crm.html")),
-);
-app.get("/crm/*path", (req, res) =>
-  res.sendFile(path.join(__dirname, "..", "public", "crm.html")),
-);
+const crmHtmlPath = path.join(__dirname, "..", "public", "crm.html");
+const serveCrmHtml = (req, res) => {
+  const html = fs
+    .readFileSync(crmHtmlPath, "utf-8")
+    .replaceAll("<script", `<script nonce="${res.locals.nonce}"`);
+  res.setHeader("Cache-Control", "no-store");
+  res.type("html").send(html);
+};
+app.get("/crm", serveCrmHtml);
+app.get("/crm/*path", serveCrmHtml);
 app.use(
   express.static(path.join(__dirname, "..", "public"), {
     index: false,
@@ -358,28 +381,81 @@ const PAGE_TITLES = {
   "/applications": "Job Applications",
   "/contact": "Contact",
 };
+const DAY_ABBR = {
+  Sun: "Su",
+  Mon: "Mo",
+  Tue: "Tu",
+  Wed: "We",
+  Thu: "Th",
+  Fri: "Fr",
+  Sat: "Sa",
+};
+function localBusinessSchema() {
+  const cfg = Object.fromEntries(
+    db
+      .prepare("SELECT key,value FROM business_settings")
+      .all()
+      .map((r) => [r.key, r.value]),
+  );
+  if (!cfg.company_name) return null;
+  const addressParts = String(cfg.address || "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  let openingHours;
+  if (cfg.hours) {
+    openingHours = cfg.hours;
+    for (const [full, short] of Object.entries(DAY_ABBR))
+      openingHours = openingHours.replaceAll(full, short);
+  }
+  return {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: cfg.company_name,
+    url: SITE_ORIGIN,
+    ...(cfg.phone ? { telephone: cfg.phone } : {}),
+    ...(cfg.email ? { email: cfg.email } : {}),
+    ...(addressParts.length
+      ? {
+          address: {
+            "@type": "PostalAddress",
+            ...(addressParts[0] ? { streetAddress: addressParts[0] } : {}),
+            ...(addressParts[1] ? { addressLocality: addressParts[1] } : {}),
+            ...(addressParts[2] ? { addressCountry: addressParts[2] } : {}),
+          },
+        }
+      : {}),
+    ...(openingHours ? { openingHours } : {}),
+  };
+}
 app.use((req, res) => {
   const pageTitle = PAGE_TITLES[req.path];
-  if (!pageTitle) return res.sendFile(indexHtmlPath);
-  const indexHtml = fs.readFileSync(indexHtmlPath, "utf-8");
-  const breadcrumb = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: SITE_ORIGIN },
-      {
-        "@type": "ListItem",
-        position: 2,
-        name: pageTitle,
-        item: `${SITE_ORIGIN}${req.path}`,
-      },
-    ],
-  };
-  const withBreadcrumb = indexHtml.replace(
-    "</head>",
-    `<script type="application/ld+json">${JSON.stringify(breadcrumb)}</script></head>`,
-  );
-  res.type("html").send(withBreadcrumb);
+  let html = fs.readFileSync(indexHtmlPath, "utf-8");
+  const schemas = [];
+  if (pageTitle)
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_ORIGIN },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: pageTitle,
+          item: `${SITE_ORIGIN}${req.path}`,
+        },
+      ],
+    });
+  const localBusiness = localBusinessSchema();
+  if (localBusiness) schemas.push(localBusiness);
+  if (schemas.length)
+    html = html.replace(
+      "</head>",
+      `${schemas.map((s) => `<script type="application/ld+json">${JSON.stringify(s)}</script>`).join("")}</head>`,
+    );
+  html = html.replaceAll("<script", `<script nonce="${res.locals.nonce}"`);
+  res.setHeader("Cache-Control", "no-store");
+  res.type("html").send(html);
 });
 app.use((err, req, res, next) => {
   console.error(err);

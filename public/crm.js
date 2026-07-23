@@ -10,7 +10,8 @@ let token = localStorage.accessToken || "",
   search = "",
   cache = {},
   notificationController = null,
-  businessSettingsCache = {};
+  businessSettingsCache = {},
+  lang = localStorage.lang || "en";
 const modules = {
   dashboard: { label: "Dashboard", icon: "⌂", group: "Overview" },
   customers: {
@@ -24,6 +25,8 @@ const modules = {
       "phone",
       "status",
       "address",
+      "tags",
+      "notes",
     ],
   },
   leads: {
@@ -218,10 +221,11 @@ const modules = {
       "customer_id",
       "issue_date",
       "due_date",
+      "status",
+      "total",
       "subtotal",
       "vat_rate",
-      "total",
-      "status",
+      "vat_amount",
       "notes",
     ],
   },
@@ -317,13 +321,553 @@ const modules = {
     readOnly: true,
   },
 };
+const WORD_HE = {
+  dashboard: "לוח בקרה",
+  overview: "סקירה כללית",
+  customers: "לקוחות",
+  crm: "ניהול קשרי לקוחות",
+  leads: "לידים",
+  deals: "עסקאות",
+  communications: "תקשורת",
+  "activity timeline": "ציר פעילות",
+  tasks: "משימות",
+  work: "עבודה",
+  projects: "פרויקטים",
+  calendar: "יומן",
+  automations: "אוטומציות",
+  approvals: "אישורים",
+  employees: "עובדים",
+  people: "אנשים",
+  attendance: "נוכחות",
+  "leave requests": "בקשות חופשה",
+  payroll: "שכר",
+  "employee portal": "פורטל עובדים",
+  transactions: "תנועות כספיות",
+  finance: "כספים",
+  invoices: "חשבוניות",
+  "bank accounts": "חשבונות בנק",
+  "reports & exports": "דוחות וייצוא",
+  "job listings": "משרות פנויות",
+  recruiting: "גיוס",
+  applications: "מועמדויות",
+  "secure files": "קבצים מאובטחים",
+  documents: "מסמכים",
+  system: "מערכת",
+  database: "מסד נתונים",
+  notifications: "התראות",
+  integrations: "אינטגרציות",
+  "security center": "מרכז אבטחה",
+  monitoring: "ניטור",
+  backups: "גיבויים",
+  "business settings": "הגדרות עסק",
+  "audit log": "יומן ביקורת",
+  "users & roles": "משתמשים והרשאות",
+  company_name: "שם החברה",
+  contact_name: "איש קשר",
+  email: "אימייל",
+  phone: "טלפון",
+  status: "סטטוס",
+  address: "כתובת",
+  tags: "תגיות",
+  notes: "הערות",
+  full_name: "שם מלא",
+  company: "חברה",
+  source: "מקור",
+  score: "ניקוד",
+  stage: "שלב",
+  follow_up_at: "תזכורת מעקב",
+  title: "כותרת",
+  value: "ערך",
+  probability: "הסתברות",
+  expected_close: "סגירה צפויה",
+  type: "סוג",
+  subject: "נושא",
+  content: "תוכן",
+  occurred_at: "תאריך",
+  entity_type: "סוג ישות",
+  entity_id: "מזהה ישות",
+  activity_type: "סוג פעילות",
+  description: "תיאור",
+  priority: "עדיפות",
+  due_date: "תאריך יעד",
+  progress: "התקדמות",
+  name: "שם",
+  start_date: "תאריך התחלה",
+  deadline: "מועד סופי",
+  budget: "תקציב",
+  spent: "הוצא",
+  event_type: "סוג אירוע",
+  start_at: "התחלה",
+  end_at: "סיום",
+  location: "מיקום",
+  trigger_event: "אירוע מפעיל",
+  conditions: "תנאים",
+  actions: "פעולות",
+  active: "פעיל",
+  assigned_role: "תפקיד מוקצה",
+  amount: "סכום",
+  reason: "סיבה",
+  created_at: "נוצר בתאריך",
+  employee_number: "מספר עובד",
+  position: "תפקיד",
+  salary: "שכר",
+  hire_date: "תאריך קליטה",
+  employee_id: "עובד",
+  date: "תאריך",
+  check_in: "כניסה",
+  check_out: "יציאה",
+  leave_type: "סוג חופשה",
+  end_date: "תאריך סיום",
+  days: "ימים",
+  month: "חודש",
+  base_salary: "שכר בסיס",
+  bonuses: "בונוסים",
+  deductions: "ניכויים",
+  tax: "מס",
+  net_salary: "שכר נטו",
+  category: "קטגוריה",
+  vat_rate: "אחוז מע\"מ",
+  number: "מספר",
+  customer_id: "לקוח",
+  issue_date: "תאריך הפקה",
+  total: "סה\"כ",
+  subtotal: "סכום ביניים",
+  vat_amount: "סכום מע\"מ",
+  bank: "בנק",
+  account_number: "מספר חשבון",
+  balance: "יתרה",
+  currency: "מטבע",
+  employment_type: "סוג העסקה",
+  salary_range: "טווח שכר",
+  requirements: "דרישות",
+  experience: "ניסיון",
+  job_title: "תפקיד המשרה",
+  mime_type: "סוג קובץ",
+  access_role: "הרשאת גישה",
+  message: "הודעה",
+  link: "קישור",
+  read_at: "נקרא בתאריך",
+  role_id: "תפקיד",
+  verified: "מאומת",
+  performance_notes: "הערות ביצועים",
+  inactive: "לא פעיל",
+  todo: "לביצוע",
+  in_progress: "בתהליך",
+  done: "הושלם",
+  planning: "בתכנון",
+  on_hold: "בהמתנה",
+  completed: "הושלם",
+  cancelled: "בוטל",
+  scheduled: "מתוזמן",
+  pending: "ממתין",
+  approved: "אושר",
+  rejected: "נדחה",
+  on_leave: "בחופשה",
+  terminated: "הופסק",
+  present: "נוכח",
+  absent: "נעדר",
+  late: "איחור",
+  draft: "טיוטה",
+  processed: "עובד",
+  paid: "שולם",
+  sent: "נשלח",
+  overdue: "באיחור",
+  closed: "סגור",
+  reviewing: "בבדיקה",
+  interviewed: "רואיין",
+  hired: "התקבל",
+  income: "הכנסה",
+  expense: "הוצאה",
+  meeting: "פגישה",
+  note: "הערה",
+  new: "חדש",
+  qualified: "מתאים",
+  qualification: "כשירות",
+  proposal: "הצעה",
+  negotiation: "משא ומתן",
+  won: "נסגר בהצלחה",
+  lost: "אבד",
+  low: "נמוכה",
+  medium: "בינונית",
+  high: "גבוהה",
+  urgent: "דחוף",
+  reminder: "תזכורת",
+  shift: "משמרת",
+  inspection: "ביקורת",
+  vacation: "חופשה",
+  sick: "מחלה",
+  personal: "אישי",
+  unpaid: "ללא תשלום",
+  website: "אתר אינטרנט",
+  referral: "הפניה",
+  campaign: "קמפיין",
+  organic: "אורגני",
+  partner: "שותף",
+  full_time: "משרה מלאה",
+  part_time: "משרה חלקית",
+  temporary: "זמני",
+  contract: "קבלני",
+  customer: "לקוח",
+  project: "פרויקט",
+  employee: "עובד",
+  transaction: "תנועה כספית",
+  manager: "מנהל",
+  administrator: "מנהל מערכת",
+  sandbox: "סביבת בדיקה",
+  live: "פעיל",
+  connected: "מחובר",
+  disconnected: "מנותק",
+  healthy: "תקין",
+  degraded: "פגום",
+  down: "מושבת",
+  queued: "בתור",
+  failed: "נכשל",
+};
+const PHRASE_HE = {
+  "Open menu": "פתח תפריט",
+  "Search business records": "חפש רשומות עסקיות",
+  "Search customers, people, projects, invoices… (Ctrl/Cmd+K)":
+    "חפש לקוחות, אנשים, פרויקטים, חשבוניות… (Ctrl/Cmd+K)",
+  "Back to website": "חזרה לאתר",
+  "Switch color theme": "החלף ערכת נושא",
+  "Switch language": "החלף שפה",
+  Notifications: "התראות",
+  "Open notifications": "פתח התראות",
+  Logout: "התנתקות",
+  "Log out": "התנתקות",
+  "One platform.": "פלטפורמה אחת.",
+  "Total business clarity.": "בהירות עסקית מלאה.",
+  "Customers, sales, finance, people and projects—securely connected in one operating system.":
+    "לקוחות, מכירות, כספים, אנשים ופרויקטים — מחוברים בבטחה למערכת הפעלה אחת.",
+  "Secure workspace": "סביבת עבודה מאובטחת",
+  "Welcome back": "ברוכים השבים",
+  "Sign in to Greece Business Platform": "התחברו לפלטפורמה העסקית של Greece",
+  Email: "אימייל",
+  Password: "סיסמה",
+  "Remember this device": "זכור מכשיר זה",
+  "Sign in securely": "התחברות מאובטחת",
+  "Sign in with a passkey": "התחברות עם מפתח גישה",
+  "Forgot password": "שכחתי סיסמה",
+  "Enter your two-factor code": "הזן את קוד האימות הדו-שלבי",
+  "Account email": "אימייל החשבון",
+  "Development reset token created": "נוצר טוקן איפוס לסביבת פיתוח",
+  "If the account exists, reset instructions were sent":
+    "אם החשבון קיים, נשלחו הוראות איפוס",
+  "Choose a new password": "בחר סיסמה חדשה",
+  "At least 10 characters, with a letter and a number.":
+    "לפחות 10 תווים, עם אות וספרה.",
+  "Password updated. You can now sign in.": "הסיסמה עודכנה. כעת ניתן להתחבר.",
+  "Activate your account": "הפעל את החשבון שלך",
+  "Choose a password to finish setting up your account. At least 10 characters, with a letter and a number.":
+    "בחר סיסמה כדי לסיים את הגדרת החשבון. לפחות 10 תווים, עם אות וספרה.",
+  "Account activated. You can now sign in.": "החשבון הופעל. כעת ניתן להתחבר.",
+  "Loading executive dashboard…": "טוען לוח בקרה ניהולי…",
+  "Executive overview": "סקירה ניהולית",
+  "Here is what is happening across your business today.":
+    "כך נראה העסק שלך היום.",
+  "New task": "משימה חדשה",
+  "Email delivery requires configuration": "יש להגדיר את שליחת האימיילים",
+  "Contact forms are saved in CRM, but SMTP must be connected before messages can reach":
+    "טפסי יצירת קשר נשמרים במערכת, אך יש לחבר SMTP כדי שהודעות יגיעו אל",
+  "Two-factor authentication is not enabled": "אימות דו-שלבי אינו מופעל",
+  "Your account has administrator access.": "לחשבון שלך יש הרשאות מנהל מערכת.",
+  "Enable 2FA now": "הפעל אימות דו-שלבי כעת",
+  Revenue: "הכנסות",
+  Expenses: "הוצאות",
+  "Current period": "התקופה הנוכחית",
+  "Net profit": "רווח נקי",
+  "Healthy margin": "מרווח בריא",
+  Outstanding: "יתרת חוב",
+  "Invoices due": "חשבוניות לתשלום",
+  "Active customers": "לקוחות פעילים",
+  "Customer base": "בסיס לקוחות",
+  "Active projects": "פרויקטים פעילים",
+  "In delivery": "בביצוע",
+  Employees: "עובדים",
+  "Active team": "צוות פעיל",
+  "Due today": "יעד היום",
+  "Tasks requiring action": "משימות הדורשות טיפול",
+  "Cash flow": "תזרים מזומנים",
+  "Income vs expenses": "הכנסות מול הוצאות",
+  "Last 12 months": "12 החודשים האחרונים",
+  "Priority tasks": "משימות בעדיפות",
+  "View all": "הצג הכל",
+  Due: "יעד",
+  "No open tasks": "אין משימות פתוחות",
+  "Sales pipeline": "צינור מכירות",
+  "Open pipeline": "פתח צינור מכירות",
+  "Notification center": "מרכז התראות",
+  "You are all caught up": "הכל מעודכן",
+  "Loading data…": "טוען נתונים…",
+  "Select all": "בחר הכל",
+  "records · centrally managed and audited": "רשומות · מנוהלות ומבוקרות באופן מרכזי",
+  "Invite user": "הזמן משתמש",
+  Add: "הוסף",
+  Search: "חיפוש",
+  Filter: "סינון",
+  "Export CSV": "ייצוא CSV",
+  "Export Excel": "ייצוא Excel",
+  "Select row": "בחר שורה",
+  Actions: "פעולות",
+  No: "אין",
+  "found.": "שנמצאו.",
+  Page: "עמוד",
+  of: "מתוך",
+  Previous: "הקודם",
+  Next: "הבא",
+  selected: "נבחרו",
+  "Set status…": "קבע סטטוס…",
+  Apply: "החל",
+  "Delete selected": "מחק את הנבחרים",
+  PDF: "PDF",
+  Download: "הורדה",
+  "Mark read": "סמן כנקרא",
+  Approve: "אשר",
+  Reject: "דחה",
+  Edit: "עריכה",
+  Delete: "מחיקה",
+  Update: "עדכון",
+  Create: "יצירה",
+  New: "חדש",
+  Close: "סגירה",
+  Cancel: "ביטול",
+  "Save changes": "שמור שינויים",
+  "Create record": "צור רשומה",
+  "Enter a phone number or email so you have a way to reach them":
+    "הזן מספר טלפון או אימייל כדי שיהיה אפשר ליצור קשר",
+  "Record updated": "הרשומה עודכנה",
+  "Record created": "הרשומה נוצרה",
+  Select: "בחר",
+  "Active rule": "כלל פעיל",
+  Tags: "תגיות",
+  "vip, contract, referral": "וי-איי-פי, חוזה, הפניה",
+  "Comma-separated": "מופרד בפסיקים",
+  "Loading…": "טוען…",
+  Submit: "שלח",
+  "New password": "סיסמה חדשה",
+  "Repeat password": "חזור על הסיסמה",
+  "Set password": "קבע סיסמה",
+  "Passwords do not match": "הסיסמאות אינן תואמות",
+  "Invite a new user": "הזמן משתמש חדש",
+  "Full name": "שם מלא",
+  Role: "תפקיד",
+  "Send invite": "שלח הזמנה",
+  "Invite sent": "ההזמנה נשלחה",
+  "Delete this record? This action is logged.": "למחוק את הרשומה? פעולה זו מתועדת.",
+  "Record deleted": "הרשומה נמחקה",
+  "Secure storage": "אחסון מאובטח",
+  "Upload a file": "העלה קובץ",
+  "File (PDF, image, text, CSV or XLSX; max 10 MB)":
+    "קובץ (PDF, תמונה, טקסט, CSV או XLSX; עד 10MB)",
+  "Related record type": "סוג רשומה קשורה",
+  General: "כללי",
+  "Related record ID": "מזהה רשומה קשורה",
+  "Minimum access role": "הרשאת גישה מינימלית",
+  "Upload securely": "העלה בבטחה",
+  "Uploading…": "מעלה…",
+  "File uploaded": "הקובץ הועלה",
+  "Loading sales pipeline…": "טוען צינור מכירות…",
+  "Track value, probability and expected close across every opportunity.":
+    "עקוב אחר ערך, הסתברות ומועד סגירה צפוי בכל הזדמנות.",
+  "New deal": "עסקה חדשה",
+  "Search deals…": "חיפוש עסקאות…",
+  "not set": "לא נקבע",
+  "Loading customer workspace…": "טוען סביבת עבודה של לקוח…",
+  Contact: "איש קשר",
+  WhatsApp: "וואטסאפ",
+  Pipeline: "צינור מכירות",
+  Projects: "פרויקטים",
+  Invoices: "חשבוניות",
+  "Open tasks": "משימות פתוחות",
+  Contacts: "אנשי קשר",
+  Primary: "ראשי",
+  "No additional contacts yet.": "אין עדיין אנשי קשר נוספים.",
+  "Recent activity": "פעילות אחרונה",
+  "Activity will appear here.": "פעילות תופיע כאן.",
+  "Loading employee workspace…": "טוען סביבת עבודה של עובד…",
+  Employment: "העסקה",
+  "Vacation balance": "יתרת חופשה",
+  days: "ימים",
+  "Sick balance": "יתרת מחלה",
+  "Recent attendance": "נוכחות אחרונה",
+  "No attendance records yet.": "אין עדיין רשומות נוכחות.",
+  "No leave requests yet.": "אין עדיין בקשות חופשה.",
+  "Payroll history": "היסטוריית שכר",
+  "Assigned tasks": "משימות שהוקצו",
+  "No records yet.": "אין עדיין רשומות.",
+  "Add contact": "הוסף איש קשר",
+  "Contact name": "שם איש הקשר",
+  "Email (optional)": "אימייל (אופציונלי)",
+  "Phone (optional)": "טלפון (אופציונלי)",
+  "Contact added": "איש הקשר נוסף",
+  "Sandbox WhatsApp message": "הודעת וואטסאפ (סביבת בדיקה)",
+  Message: "הודעה",
+  "Hello, this is GREECE Maintenance & Staffing regarding your account.":
+    "שלום, זוהי GREECE אחזקה וכוח אדם בנוגע לחשבונך.",
+  Send: "שלח",
+  "WhatsApp sandbox job": "משימת וואטסאפ (סביבת בדיקה)",
+  "Sending invoice…": "שולח חשבונית…",
+  "Invoice emailed to customer": "החשבונית נשלחה ללקוח באימייל",
+  "Leave request": "בקשת חופשה",
+  "Skip tour": "דלג על הסיור",
+  "Your dashboard": "לוח הבקרה שלך",
+  "See revenue, tasks, and pipeline at a glance the moment you sign in.":
+    "ראה הכנסות, משימות וצינור מכירות במבט אחד ברגע ההתחברות.",
+  "Search anything": "חפש כל דבר",
+  "Press Ctrl+K (or Cmd+K on Mac) anytime to jump straight to customers, invoices, or projects.":
+    "לחץ Ctrl+K (או Cmd+K ב-Mac) בכל עת כדי לדלג ישירות ללקוחות, חשבוניות או פרויקטים.",
+  "Stay notified": "הישאר מעודכן",
+  "New leads and approvals show up here in real time — no refresh needed.":
+    "לידים ואישורים חדשים מופיעים כאן בזמן אמת — ללא צורך ברענון.",
+  "Make it yours": "התאם אישית",
+  "Switch between light/dark themes and languages from the top bar.":
+    "עבור בין ערכות נושא בהירות/כהות ושפות מסרגל הכלים העליון.",
+  Back: "חזרה",
+  "Get started": "בוא נתחיל",
+  "Go to": "עבור אל",
+  Overview: "סקירה כללית",
+  "Switch to light theme": "עבור למצב בהיר",
+  "Switch to dark theme": "עבור למצב כהה",
+  Appearance: "מראה",
+  Preferences: "העדפות",
+  Session: "הפעלה",
+  "No matches": "אין תוצאות",
+  "Type a command or search records…": "הקלד פקודה או חפש רשומות…",
+  "Business OS": "מערכת ניהול עסקי",
+  "Team Calendar": "יומן צוות",
+  "Meetings, deadlines, reminders and schedules.": "פגישות, מועדים סופיים, תזכורות ולוחות זמנים.",
+  "New event": "אירוע חדש",
+  "No location": "ללא מיקום",
+  "No events scheduled": "אין אירועים מתוזמנים",
+  "CRM Automations": "אוטומציות ניהול קשרי לקוחות",
+  "Rules create follow-ups and notifications automatically.":
+    "כללים יוצרים מעקבים והתראות באופן אוטומטי.",
+  "New rule": "כלל חדש",
+  "Run now": "הרץ עכשיו",
+  Active: "פעיל",
+  Paused: "מושהה",
+  runs: "הרצות",
+  Last: "אחרון",
+  never: "מעולם לא",
+  "follow-up task(s) created": "משימות מעקב נוצרו",
+  "Approval Center": "מרכז אישורים",
+  "Controlled decisions for financial and sensitive operations.":
+    "החלטות מבוקרות לפעולות פיננסיות ורגישות.",
+  "New request": "בקשה חדשה",
+  "No amount": "ללא סכום",
+  "No approval requests": "אין בקשות אישור",
+  "Decision notes": "הערות החלטה",
+  "Notes (optional)": "הערות (אופציונלי)",
+  Confirm: "אשר",
+  "Decision recorded": "ההחלטה נרשמה",
+  "New approval request": "בקשת אישור חדשה",
+  "What needs approval?": "מה דורש אישור?",
+  "Amount in ILS (optional)": "סכום בשקלים (אופציונלי)",
+  Reason: "סיבה",
+  "Create request": "צור בקשה",
+  "Approval request created": "בקשת האישור נוצרה",
+  "Employee Self-Service": "שירות עצמי לעובדים",
+  "Request leave": "בקש חופשה",
+  "My tasks": "המשימות שלי",
+  "No tasks": "אין משימות",
+  "No requests": "אין בקשות",
+  "Your account is secure.": "החשבון שלך מאובטח.",
+  "Link an employee profile with the same login email to enable this portal.":
+    "קשר פרופיל עובד עם אותו אימייל התחברות כדי להפעיל את הפורטל הזה.",
+  "Start date": "תאריך התחלה",
+  "End date": "תאריך סיום",
+  "Submit request": "שלח בקשה",
+  "Leave request submitted": "בקשת החופשה נשלחה",
+  "Auditable finance, sales, HR and operations reporting.":
+    "דיווח כספי, מכירות, משאבי אנוש ותפעול הניתן לביקורת.",
+  "Download Excel workbook": "הורד חוברת עבודה של Excel",
+  "Total income": "סך הכנסות",
+  "Total expenses": "סך הוצאות",
+  "Available report sheets": "גיליונות דוחות זמינים",
+  "Sales Pipeline": "צינור מכירות",
+  "Safe sandbox connectors ready for production credentials.":
+    "מחברי סביבת בדיקה בטוחים, מוכנים לפרטי גישה לייצור.",
+  integration: "אינטגרציה",
+  "Test connection": "בדוק חיבור",
+  "Authentication, sessions, passkeys and sensitive activity.":
+    "אימות, הפעלות, מפתחות גישה ופעילות רגישה.",
+  Disable: "בטל",
+  Enable: "הפעל",
+  "2FA": "אימות דו-שלבי",
+  "push notifications": "התראות דחיפה",
+  "Register passkey": "רשום מפתח גישה",
+  "Failed logins (24h)": "כניסות כושלות (24 שעות)",
+  "Active sessions": "הפעלות פעילות",
+  "Locked accounts": "חשבונות נעולים",
+  "Registered passkeys": "מפתחות גישה רשומים",
+  "My devices": "המכשירים שלי",
+  Unknown: "לא ידוע",
+  Revoked: "בוטל",
+  Revoke: "בטל",
+  Passkeys: "מפתחות גישה",
+  Added: "נוסף",
+  "No passkeys registered yet.": "אין עדיין מפתחות גישה רשומים.",
+  "Session revoked": "ההפעלה בוטלה",
+  "Enable two-factor authentication": "הפעל אימות דו-שלבי",
+  "6-digit code": "קוד בן 6 ספרות",
+  "Add this secret to your authenticator app, then enter the 6-digit code it shows:":
+    "הוסף את הקוד הסודי הזה לאפליקציית האימות שלך, לאחר מכן הזן את הקוד בן 6 הספרות שהיא מציגה:",
+  "Two-factor authentication enabled": "אימות דו-שלבי הופעל",
+  "Disable two-factor authentication": "בטל אימות דו-שלבי",
+  "Current authenticator code": "קוד האימות הנוכחי",
+  "Two-factor authentication disabled": "אימות דו-שלבי בוטל",
+  "Operations Monitoring": "ניטור תפעולי",
+  "Health, integrations, storage and unresolved errors.":
+    "תקינות, אינטגרציות, אחסון ושגיאות שלא טופלו.",
+  "Create backup": "צור גיבוי",
+  Uptime: "זמן פעילות",
+  min: "דקות",
+  "Unresolved events": "אירועים שלא טופלו",
+  "Provider health": "תקינות ספקים",
+  "Create and retrieve checksum-verified point-in-time database backups.":
+    "צור ואחזר גיבויי מסד נתונים מאומתי checksum לנקודת זמן.",
+  "New backup": "גיבוי חדש",
+  "No backups yet": "אין עדיין גיבויים",
+  "Creating backup…": "יוצר גיבוי…",
+  "Backup completed": "הגיבוי הושלם",
+  "Generated values can be replaced with your real company information.":
+    "ניתן להחליף ערכים שנוצרו אוטומטית בפרטי החברה האמיתיים שלך.",
+  Save: "שמור",
+  "Setting updated": "ההגדרה עודכנה",
+  "Push notifications are not supported by this browser": "התראות דחיפה אינן נתמכות בדפדפן זה",
+  "Push notifications disabled": "התראות דחיפה בוטלו",
+  "Notification permission was not granted": "ההרשאה להתראות לא ניתנה",
+  "Push notifications enabled": "התראות דחיפה הופעלו",
+  "Passkeys are not supported by this browser": "מפתחות גישה אינם נתמכים בדפדפן זה",
+  "Name this passkey": "תן שם למפתח הגישה",
+  "Device name": "שם המכשיר",
+  "My device": "המכשיר שלי",
+  "Passkey registered": "מפתח הגישה נרשם",
+  "Passkey registration was cancelled": "רישום מפתח הגישה בוטל",
+  Continue: "המשך",
+  "Passkey sign-in was cancelled": "ההתחברות עם מפתח הגישה בוטלה",
+  "CSV exported": "ה-CSV יוצא",
+  "Skip to main content": "דלג לתוכן הראשי",
+};
+function tr(s) {
+  return (lang === "he" && PHRASE_HE[s]) || s;
+}
+function applyLangAttrs() {
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === "he" ? "rtl" : "ltr";
+  document.body.classList.toggle("rtl", lang === "he");
+  const skipLink = $(".skip-link");
+  if (skipLink) skipLink.textContent = tr("Skip to main content");
+}
 const money = (v) =>
-  new Intl.NumberFormat(document.documentElement.lang || "en", {
+  new Intl.NumberFormat(lang === "he" ? "he-IL" : "en-US", {
     style: "currency",
     currency: "ILS",
     maximumFractionDigits: 0,
   }).format(Number(v || 0));
 const date = (v) => (v ? new Date(v).toLocaleDateString() : "");
+const getCsrfToken = () =>
+  document.cookie.match(/(?:^|; )csrf_token=([^;]*)/)?.[1] || "";
 async function api(url, opt = {}) {
   let r = await fetch(API + url, {
     ...opt,
@@ -338,6 +882,7 @@ async function api(url, opt = {}) {
     const rr = await fetch(API + "/auth/refresh", {
       method: "POST",
       credentials: "include",
+      headers: { "X-CSRF-Token": getCsrfToken() },
     });
     if (rr.ok) {
       const x = await rr.json();
@@ -361,11 +906,12 @@ async function api(url, opt = {}) {
   return r.status === 204 ? null : r.json();
 }
 function loginView() {
-  document.body.className = "";
+  document.body.className = lang === "he" ? "rtl" : "";
   $("#app").innerHTML =
-    `<div class="login"><div class="login-art"><div class="brand"><span class="brand-mark">G</span> Greece</div><h1>One platform.<br><span style="color:var(--primary2)">Total business clarity.</span></h1><p style="color:#98a4b8;max-width:560px;font-size:17px;line-height:1.7">Customers, sales, finance, people and projects—securely connected in one operating system.</p></div><div class="login-panel"><form class="login-box" id="loginForm"><span class="eyebrow">Secure workspace</span><h1 style="font-size:34px;margin:12px 0 8px">Welcome back</h1><p class="muted">Sign in to Greece Business Platform</p><div class="field"><label>Email</label><input name="email" type="email" autocomplete="username" required></div><div class="field"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div><label style="display:flex;gap:8px;align-items:center;margin:15px 0"><input name="rememberMe" type="checkbox" checked> Remember this device</label><button type="submit" class="btn" style="width:100%;padding:13px">Sign in securely</button><button type="button" class="btn secondary" style="width:100%;margin-top:9px" onclick="passkeyLogin()">Sign in with a passkey</button><button type="button" class="btn secondary" style="width:100%;margin-top:9px" onclick="forgotPassword()">Forgot password</button></form></div></div>`;
+    `<div class="login"><div class="login-art"><div class="brand"><span class="brand-mark">G</span> Greece</div><h1>${tr("One platform.")}<br><span style="color:var(--primary2)">${tr("Total business clarity.")}</span></h1><p style="color:#98a4b8;max-width:560px;font-size:17px;line-height:1.7">${tr("Customers, sales, finance, people and projects—securely connected in one operating system.")}</p></div><div class="login-panel"><form class="login-box" id="loginForm"><div style="display:flex;justify-content:space-between;align-items:center"><span class="eyebrow">${tr("Secure workspace")}</span><button type="button" class="icon-btn lang-btn" title="${tr("Switch language")}" aria-label="${tr("Switch language")}" onclick="toggleLanguage()">${langLabel()}</button></div><h1 style="font-size:34px;margin:12px 0 8px">${tr("Welcome back")}</h1><p class="muted">${tr("Sign in to Greece Business Platform")}</p><div class="field"><label>${tr("Email")}</label><input name="email" type="email" autocomplete="username" required></div><div class="field"><label>${tr("Password")}</label><input name="password" type="password" autocomplete="current-password" required></div><label style="display:flex;gap:8px;align-items:center;margin:15px 0"><input name="rememberMe" type="checkbox" checked> ${tr("Remember this device")}</label><button type="submit" class="btn" style="width:100%;padding:13px">${tr("Sign in securely")}</button><button type="button" class="btn secondary" style="width:100%;margin-top:9px" onclick="passkeyLogin()">${tr("Sign in with a passkey")}</button><button type="button" class="btn secondary" style="width:100%;margin-top:9px" onclick="forgotPassword()">${tr("Forgot password")}</button></form></div></div>`;
   $("#loginForm").onsubmit = login;
   handlePasswordResetLink();
+  handleInviteLink();
 }
 async function login(e) {
   e.preventDefault();
@@ -376,7 +922,7 @@ async function login(e) {
       method: "POST",
       body: JSON.stringify(b),
     });
-    if (x.twoFactorRequired) return toast("Enter your two-factor code");
+    if (x.twoFactorRequired) return toast(tr("Enter your two-factor code"));
     token = x.token;
     localStorage.accessToken = token;
     user = x.user;
@@ -386,35 +932,55 @@ async function login(e) {
   }
 }
 async function forgotPassword() {
-  const email = prompt("Enter your account email:");
-  if (!email) return;
+  const data = await promptForm(tr("Forgot password"), [
+    { name: "email", label: tr("Account email"), type: "email", required: true },
+  ]);
+  if (!data) return;
   const x = await api("/auth/password/forgot", {
     method: "POST",
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email: data.email }),
   });
   toast(
     x.developmentToken
-      ? "Development reset token created"
-      : "If the account exists, reset instructions were sent",
+      ? tr("Development reset token created")
+      : tr("If the account exists, reset instructions were sent"),
   );
 }
 async function handlePasswordResetLink() {
   const resetToken = new URLSearchParams(location.hash.slice(1)).get("reset");
   if (!resetToken) return;
   history.replaceState(null, "", "/crm");
-  const password = prompt("Choose a new password (at least 10 characters):");
-  if (!password) return;
-  const confirmation = prompt("Repeat your new password:");
-  if (password !== confirmation) return toast("Passwords do not match");
-  try {
-    await api("/auth/password/reset", {
-      method: "POST",
-      body: JSON.stringify({ token: resetToken, password }),
-    });
-    toast("Password updated. You can now sign in.");
-  } catch (error) {
-    toast(error.message);
-  }
+  const ok = await promptPasswordForm(
+    tr("Choose a new password"),
+    tr("At least 10 characters, with a letter and a number."),
+    async (password) => {
+      await api("/auth/password/reset", {
+        method: "POST",
+        body: JSON.stringify({ token: resetToken, password }),
+      });
+    },
+  );
+  if (ok) toast(tr("Password updated. You can now sign in."));
+}
+async function handleInviteLink() {
+  const inviteToken = new URLSearchParams(location.hash.slice(1)).get(
+    "invite",
+  );
+  if (!inviteToken) return;
+  history.replaceState(null, "", "/crm");
+  const ok = await promptPasswordForm(
+    tr("Activate your account"),
+    tr(
+      "Choose a password to finish setting up your account. At least 10 characters, with a letter and a number.",
+    ),
+    async (password) => {
+      await api("/auth/users/accept-invite", {
+        method: "POST",
+        body: JSON.stringify({ token: inviteToken, password }),
+      });
+    },
+  );
+  if (ok) toast(tr("Account activated. You can now sign in."));
 }
 const svg = (inner) =>
   `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
@@ -438,7 +1004,7 @@ const iconExternal = () =>
   );
 const themeIcon = () =>
   document.documentElement.dataset.theme === "dark" ? iconSun() : iconMoon();
-const langLabel = () => (document.documentElement.lang === "he" ? "EN" : "HE");
+const langLabel = () => (lang === "he" ? "EN" : "HE");
 function sidebar() {
   const groups = {};
   for (const [k, m] of Object.entries(modules))
@@ -448,14 +1014,14 @@ function sidebar() {
   )
     .map(
       ([g, items]) =>
-        `<div class="nav-group"><div class="nav-title">${g}</div>${items.map(([k, m]) => `<button class="nav-item ${current === k ? "active" : ""}" data-module="${k}"><span>${m.icon}</span><span>${m.label}</span></button>`).join("")}</div>`,
+        `<div class="nav-group"><div class="nav-title">${title(g)}</div>${items.map(([k, m]) => `<button class="nav-item ${current === k ? "active" : ""}" data-module="${k}"><span>${m.icon}</span><span>${title(m.label)}</span></button>`).join("")}</div>`,
     )
     .join("")}</aside>`;
 }
 function appView() {
   document.body.className = document.documentElement.dir === "rtl" ? "rtl" : "";
   $("#app").innerHTML =
-    `<div class="app">${sidebar()}<div class="workspace"><header class="topbar"><button class="icon-btn mobile-menu" aria-label="Open menu" onclick="$('.sidebar').classList.toggle('open')">☰</button><div class="global-search"><label class="sr-only" for="globalSearch">Search business records</label><input class="input" id="globalSearch" placeholder="Search customers, people, projects, invoices… (Ctrl/Cmd+K)"><div class="search-results" id="searchResults"></div></div><div class="top-actions"><a class="icon-btn" title="Back to website" aria-label="Back to website" href="/">${iconExternal()}</a><button class="icon-btn" id="themeToggle" title="Switch color theme" aria-label="Switch color theme" onclick="toggleTheme()">${themeIcon()}</button><button class="icon-btn lang-btn" id="langToggle" title="Switch language" aria-label="Switch language" onclick="toggleLanguage()">${langLabel()}</button><button class="icon-btn notification-button" title="Notifications" aria-label="Open notifications" onclick="openModule('notifications')">${iconBell()}<span id="notificationCount" hidden></span></button><div class="avatar">${(user?.name || "A").slice(0, 1)}</div><span class="user-name"><b>${user?.name || ""}</b><small class="muted" style="display:block">${user?.role || ""}</small></span><button class="icon-btn" title="Logout" aria-label="Log out" onclick="logout()">${iconLogout()}</button></div></header><main class="content" id="content" tabindex="-1"></main></div></div>`;
+    `<div class="app">${sidebar()}<div class="workspace"><header class="topbar"><button class="icon-btn mobile-menu" aria-label="${tr("Open menu")}" onclick="$('.sidebar').classList.toggle('open')">☰</button><div class="global-search"><label class="sr-only" for="globalSearch">${tr("Search business records")}</label><input class="input" id="globalSearch" placeholder="${tr("Search customers, people, projects, invoices… (Ctrl/Cmd+K)")}"><div class="search-results" id="searchResults"></div></div><div class="top-actions"><a class="icon-btn" title="${tr("Back to website")}" aria-label="${tr("Back to website")}" href="/">${iconExternal()}</a><button class="icon-btn" id="themeToggle" title="${tr("Switch color theme")}" aria-label="${tr("Switch color theme")}" onclick="toggleTheme()">${themeIcon()}</button><button class="icon-btn lang-btn" id="langToggle" title="${tr("Switch language")}" aria-label="${tr("Switch language")}" onclick="toggleLanguage()">${langLabel()}</button><button class="icon-btn notification-button" title="${tr("Notifications")}" aria-label="${tr("Open notifications")}" onclick="openModule('notifications')">${iconBell()}<span id="notificationCount" hidden></span></button><div class="avatar">${(user?.name || "A").slice(0, 1)}</div><span class="user-name"><b>${escapeHtml(user?.name || "")}</b><small class="muted" style="display:block">${title(user?.role || "")}</small></span><button class="icon-btn" title="${tr("Logout")}" aria-label="${tr("Log out")}" onclick="logout()">${iconLogout()}</button></div></header><main class="content" id="content" tabindex="-1"></main></div></div>`;
   $$("[data-module]").forEach(
     (b) => (b.onclick = () => openModule(b.dataset.module)),
   );
@@ -476,22 +1042,28 @@ async function render() {
 }
 async function dashboard() {
   const el = $("#content");
-  el.innerHTML = '<div class="empty">Loading executive dashboard…</div>';
+  el.innerHTML = `<div class="empty">${tr("Loading executive dashboard…")}</div>`;
   try {
     const [x, emailStatus] = await Promise.all([
         api("/dashboard"),
         api("/system/email-status"),
       ]),
-      k = x.kpis;
-    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">Executive overview</span><h1>Good ${new Date().getHours() < 12 ? "morning" : "afternoon"}, ${(user.name || "").split(" ")[0]}</h1><p class="muted">Here is what is happening across your business today.</p></div><button class="btn" onclick="openModule('tasks');setTimeout(openCreate,20)">＋ New task</button></div>${emailStatus.connected ? "" : `<div class="card" style="border-color:var(--yellow);margin-bottom:16px"><b>⚠ Email delivery requires configuration</b><p class="muted" style="margin:7px 0 0">Contact forms are saved in CRM, but SMTP must be connected before messages can reach ${escapeHtml(emailStatus.recipient)}.</p></div>`}${!user.twoFactorEnabled && ["administrator", "super_admin"].includes(user.role) ? `<div class="card" style="border-color:var(--yellow);margin-bottom:16px"><b>⚠ Two-factor authentication is not enabled</b><p class="muted" style="margin:7px 0 0">Your account has administrator access. <button class="btn secondary" style="padding:4px 12px;margin-inline-start:6px" onclick="openModule('security');setTimeout(setup2FA,20)">Enable 2FA now</button></p></div>` : ""}<div class="kpis">${[
-      ["Revenue", money(k.revenue), "↗ 12.4%"],
-      ["Expenses", money(k.expenses), "Current period"],
-      ["Net profit", money(k.profit), "Healthy margin"],
-      ["Outstanding", money(k.outstanding), "Invoices due"],
-      ["Active customers", k.customers, "Customer base"],
-      ["Active projects", k.projects, "In delivery"],
-      ["Employees", k.employees, "Active team"],
-      ["Due today", k.tasksToday, "Tasks requiring action"],
+      k = x.kpis,
+      isMorning = new Date().getHours() < 12,
+      firstName = (user.name || "").split(" ")[0],
+      greeting =
+        lang === "he"
+          ? `${isMorning ? "בוקר טוב" : "צהריים טובים"}, ${escapeHtml(firstName)}`
+          : `Good ${isMorning ? "morning" : "afternoon"}, ${escapeHtml(firstName)}`;
+    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">${tr("Executive overview")}</span><h1>${greeting}</h1><p class="muted">${tr("Here is what is happening across your business today.")}</p></div><button class="btn" onclick="openModule('tasks');setTimeout(openCreate,20)">＋ ${tr("New task")}</button></div>${emailStatus.connected ? "" : `<div class="card" style="border-color:var(--yellow);margin-bottom:16px"><b>⚠ ${tr("Email delivery requires configuration")}</b><p class="muted" style="margin:7px 0 0">${tr("Contact forms are saved in CRM, but SMTP must be connected before messages can reach")} ${escapeHtml(emailStatus.recipient)}.</p></div>`}${!user.twoFactorEnabled && ["administrator", "super_admin"].includes(user.role) ? `<div class="card" style="border-color:var(--yellow);margin-bottom:16px"><b>⚠ ${tr("Two-factor authentication is not enabled")}</b><p class="muted" style="margin:7px 0 0">${tr("Your account has administrator access.")} <button class="btn secondary" style="padding:4px 12px;margin-inline-start:6px" onclick="openModule('security');setTimeout(setup2FA,20)">${tr("Enable 2FA now")}</button></p></div>` : ""}<div class="kpis">${[
+      [tr("Revenue"), money(k.revenue), "↗ 12.4%"],
+      [tr("Expenses"), money(k.expenses), tr("Current period")],
+      [tr("Net profit"), money(k.profit), tr("Healthy margin")],
+      [tr("Outstanding"), money(k.outstanding), tr("Invoices due")],
+      [tr("Active customers"), k.customers, tr("Customer base")],
+      [tr("Active projects"), k.projects, tr("In delivery")],
+      [tr("Employees"), k.employees, tr("Active team")],
+      [tr("Due today"), k.tasksToday, tr("Tasks requiring action")],
     ]
       .map(
         (v) =>
@@ -499,7 +1071,7 @@ async function dashboard() {
       )
       .join(
         "",
-      )}</div><div class="dashboard-grid"><section class="card"><div class="card-head"><div><h3>Cash flow</h3><span class="muted">Income vs expenses</span></div><span class="badge">Last 12 months</span></div>${cashChart(x.cashflow)}</section><section class="card"><div class="card-head"><h3>Priority tasks</h3><button class="btn secondary" onclick="openModule('tasks')">View all</button></div>${x.tasks.length ? x.tasks.map((t) => `<div class="task-row"><i class="priority ${t.priority}"></i><div style="flex:1"><b>${escapeHtml(t.title)}</b><small class="muted" style="display:block">Due ${date(t.due_date)}</small></div><span class="badge ${t.status}">${t.status}</span></div>`).join("") : '<div class="empty">No open tasks</div>'}</section></div><div class="dashboard-grid"><section class="card"><div class="card-head"><h3>Sales pipeline</h3><button class="btn secondary" onclick="openModule('deals')">Open pipeline</button></div>${x.pipeline.map((p) => `<div class="activity-row"><div style="flex:1"><b>${title(p.stage)}</b><div class="progress"><i style="width:${Math.min(100, p.count * 20)}%"></i></div></div><span>${p.count} · ${money(p.value)}</span></div>`).join("")}</section><section class="card"><div class="card-head"><h3>Notification center</h3><button class="btn secondary" onclick="openModule('notifications')">View all</button></div>${x.notifications.length ? x.notifications.map((n) => `<div class="activity-row"><span>◦</span><div><b>${escapeHtml(n.title)}</b><small class="muted" style="display:block">${escapeHtml(n.message || "")}</small></div></div>`).join("") : '<div class="empty">You are all caught up</div>'}</section></div>`;
+      )}</div><div class="dashboard-grid"><section class="card"><div class="card-head"><div><h3>${tr("Cash flow")}</h3><span class="muted">${tr("Income vs expenses")}</span></div><span class="badge">${tr("Last 12 months")}</span></div>${cashChart(x.cashflow)}</section><section class="card"><div class="card-head"><h3>${tr("Priority tasks")}</h3><button class="btn secondary" onclick="openModule('tasks')">${tr("View all")}</button></div>${x.tasks.length ? x.tasks.map((tk) => `<div class="task-row"><i class="priority ${escapeHtml(tk.priority)}"></i><div style="flex:1"><b>${escapeHtml(tk.title)}</b><small class="muted" style="display:block">${tr("Due")} ${date(tk.due_date)}</small></div><span class="badge ${escapeHtml(tk.status)}">${title(tk.status)}</span></div>`).join("") : `<div class="empty">${tr("No open tasks")}</div>`}</section></div><div class="dashboard-grid"><section class="card"><div class="card-head"><h3>${tr("Sales pipeline")}</h3><button class="btn secondary" onclick="openModule('deals')">${tr("Open pipeline")}</button></div>${x.pipeline.map((p) => `<div class="activity-row"><div style="flex:1"><b>${title(p.stage)}</b><div class="progress"><i style="width:${Math.min(100, p.count * 20)}%"></i></div></div><span>${p.count} · ${money(p.value)}</span></div>`).join("")}</section><section class="card"><div class="card-head"><h3>${tr("Notification center")}</h3><button class="btn secondary" onclick="openModule('notifications')">${tr("View all")}</button></div>${x.notifications.length ? x.notifications.map((n) => `<div class="activity-row"><span>◦</span><div><b>${escapeHtml(n.title)}</b><small class="muted" style="display:block">${escapeHtml(n.message || "")}</small></div></div>`).join("") : `<div class="empty">${tr("You are all caught up")}</div>`}</section></div>`;
   } catch (e) {
     el.innerHTML = `<div class="empty">${e.message}</div>`;
   }
@@ -524,7 +1096,7 @@ async function calendarView() {
   try {
     const x = await api("/calendar_events?limit=100&sort=start_at&dir=asc");
     cache.calendar_events = x.data;
-    el.innerHTML = `${pageHead("Team Calendar", "Meetings, deadlines, reminders and schedules.", `<button class="btn" onclick="openForm(null)">＋ New event</button>`)}<div class="card"><div class="calendar-list">${x.data.map((e) => `<div class="activity-row"><div class="avatar" style="border-radius:10px">${new Date(e.start_at).getDate()}</div><div style="flex:1"><b>${escapeHtml(e.title)}</b><div class="muted">${new Date(e.start_at).toLocaleString()} · ${escapeHtml(e.location || "No location")}</div></div><span class="badge ${e.status}">${title(e.event_type)}</span><button class="btn secondary" onclick="openEdit('${e.id}')">Edit</button></div>`).join("") || '<div class="empty">No events scheduled</div>'}</div></div>`;
+    el.innerHTML = `${pageHead(tr("Team Calendar"), tr("Meetings, deadlines, reminders and schedules."), `<button class="btn" onclick="openForm(null)">＋ ${tr("New event")}</button>`)}<div class="card"><div class="calendar-list">${x.data.map((e) => `<div class="activity-row"><div class="avatar" style="border-radius:10px">${new Date(e.start_at).getDate()}</div><div style="flex:1"><b>${escapeHtml(e.title)}</b><div class="muted">${new Date(e.start_at).toLocaleString()} · ${escapeHtml(e.location || tr("No location"))}</div></div><span class="badge ${escapeHtml(e.status)}">${title(e.event_type)}</span><button class="btn secondary" onclick="openEdit('${e.id}')">${tr("Edit")}</div>`).join("") || `<div class="empty">${tr("No events scheduled")}</div>`}</div></div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -534,7 +1106,7 @@ async function automationsView() {
   try {
     const x = await api("/automation_rules?limit=100");
     cache.automation_rules = x.data;
-    el.innerHTML = `${pageHead("CRM Automations", "Rules create follow-ups and notifications automatically.", `<button class="btn secondary" onclick="openForm(null)">＋ New rule</button><button class="btn" onclick="runAutomations()">▶ Run now</button>`)}<div class="grid3">${x.data.map((r) => `<div class="card"><div class="card-head"><span class="badge ${r.active ? "active" : "inactive"}">${r.active ? "Active" : "Paused"}</span><button class="btn secondary" onclick="openEdit('${r.id}')">Edit</button></div><h3>${escapeHtml(r.name)}</h3><p class="muted">${title(r.trigger_event)} · ${title(r.entity_type)}</p><small>${r.run_count || 0} runs · Last ${date(r.last_run_at) || "never"}</small></div>`).join("")}</div>`;
+    el.innerHTML = `${pageHead(tr("CRM Automations"), tr("Rules create follow-ups and notifications automatically."), `<button class="btn secondary" onclick="openForm(null)">＋ ${tr("New rule")}</button><button class="btn" onclick="runAutomations()">▶ ${tr("Run now")}</button>`)}<div class="grid3">${x.data.map((r) => `<div class="card"><div class="card-head"><span class="badge ${r.active ? "active" : "inactive"}">${r.active ? tr("Active") : tr("Paused")}</span><button class="btn secondary" onclick="openEdit('${r.id}')">${tr("Edit")}</button></div><h3>${escapeHtml(r.name)}</h3><p class="muted">${title(r.trigger_event)} · ${title(r.entity_type)}</p><small>${r.run_count || 0} ${tr("runs")} · ${tr("Last")} ${date(r.last_run_at) || tr("never")}</small></div>`).join("")}</div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -542,7 +1114,7 @@ async function automationsView() {
 async function runAutomations() {
   try {
     const x = await api("/automations/run", { method: "POST", body: "{}" });
-    toast(`${x.tasksCreated} follow-up task(s) created`);
+    toast(`${x.tasksCreated} ${tr("follow-up task(s) created")}`);
     render();
   } catch (e) {
     toast(e.message);
@@ -553,31 +1125,37 @@ async function approvalsView() {
   try {
     const x = await api("/approval_requests?limit=100");
     cache.approval_requests = x.data;
-    el.innerHTML = `${pageHead("Approval Center", "Controlled decisions for financial and sensitive operations.", `<button class="btn" onclick="createApproval()">＋ New request</button>`)}<div class="card">${x.data.map((a) => `<div class="activity-row"><div style="flex:1"><b>${title(a.action)}</b><div class="muted">${title(a.entity_type)} · ${a.amount ? money(a.amount) : "No amount"} · ${escapeHtml(a.reason || "")}</div></div><span class="badge ${a.status}">${title(a.status)}</span>${a.status === "pending" ? `<button class="btn" onclick="decideApproval('${a.id}','approved')">Approve</button><button class="btn danger" onclick="decideApproval('${a.id}','rejected')">Reject</button>` : ""}</div>`).join("") || '<div class="empty">No approval requests</div>'}</div>`;
+    el.innerHTML = `${pageHead(tr("Approval Center"), tr("Controlled decisions for financial and sensitive operations."), `<button class="btn" onclick="createApproval()">＋ ${tr("New request")}</button>`)}<div class="card">${x.data.map((a) => `<div class="activity-row"><div style="flex:1"><b>${title(a.action)}</b><div class="muted">${title(a.entity_type)} · ${a.amount ? money(a.amount) : tr("No amount")} · ${escapeHtml(a.reason || "")}</div></div><span class="badge ${escapeHtml(a.status)}">${title(a.status)}</span>${a.status === "pending" ? `<button class="btn" onclick="decideApproval('${a.id}','approved')">${tr("Approve")}</button><button class="btn danger" onclick="decideApproval('${a.id}','rejected')">${tr("Reject")}</button>` : ""}</div>`).join("") || `<div class="empty">${tr("No approval requests")}</div>`}</div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
 }
 async function decideApproval(id, decision) {
+  const data = await promptForm(tr("Decision notes"), [
+    { name: "notes", label: tr("Notes (optional)") },
+  ], tr("Confirm"));
+  if (!data) return;
   try {
     await api(`/approvals/${id}/decision`, {
       method: "POST",
-      body: JSON.stringify({
-        decision,
-        notes: prompt("Decision notes (optional):") || "",
-      }),
+      body: JSON.stringify({ decision, notes: data.notes || "" }),
     });
-    toast("Decision recorded");
+    toast(tr("Decision recorded"));
     render();
   } catch (e) {
     toast(e.message);
   }
 }
 async function createApproval() {
-  const action = prompt("What needs approval?"),
-    amount = Number(prompt("Amount in ILS (optional):", "0") || 0),
-    reason = prompt("Reason:") || "";
-  if (!action) return;
+  const data = await promptForm(tr("New approval request"), [
+    { name: "action", label: tr("What needs approval?"), required: true },
+    { name: "amount", label: tr("Amount in ILS (optional)"), type: "number" },
+    { name: "reason", label: tr("Reason") },
+  ], tr("Create request"));
+  if (!data || !data.action) return;
+  const action = data.action,
+    amount = Number(data.amount || 0),
+    reason = data.reason || "";
   try {
     await api("/approval_requests", {
       method: "POST",
@@ -591,7 +1169,7 @@ async function createApproval() {
         status: "pending",
       }),
     });
-    toast("Approval request created");
+    toast(tr("Approval request created"));
     render();
   } catch (e) {
     toast(e.message);
@@ -602,11 +1180,11 @@ async function portalView() {
   try {
     const x = await api("/portal/me"),
       e = x.employee;
-    el.innerHTML = `${pageHead("Employee Self-Service", `${e.full_name} · ${e.position || ""} · ${e.department || ""}`, `<button class="btn" onclick="requestLeave()">Request leave</button>`)}<div class="kpis">${[
-      ["Employment", title(e.status)],
-      ["Vacation balance", `${e.vacation_days || 0} days`],
-      ["Sick balance", `${e.sick_days || 0} days`],
-      ["Open tasks", x.tasks.filter((t) => t.status !== "done").length],
+    el.innerHTML = `${pageHead(tr("Employee Self-Service"), `${e.full_name} · ${e.position || ""} · ${e.department || ""}`, `<button class="btn" onclick="requestLeave()">${tr("Request leave")}</button>`)}<div class="kpis">${[
+      [tr("Employment"), title(e.status)],
+      [tr("Vacation balance"), `${e.vacation_days || 0} ${tr("days")}`],
+      [tr("Sick balance"), `${e.sick_days || 0} ${tr("days")}`],
+      [tr("Open tasks"), x.tasks.filter((t) => t.status !== "done").length],
     ]
       .map(
         (v) =>
@@ -614,14 +1192,19 @@ async function portalView() {
       )
       .join(
         "",
-      )}</div><div class="dashboard-grid"><div class="card"><h3>My tasks</h3>${x.tasks.map((t) => `<div class="task-row"><i class="priority ${t.priority}"></i><div><b>${escapeHtml(t.title)}</b><small class="muted"> · ${date(t.due_date)}</small></div></div>`).join("") || '<p class="muted">No tasks</p>'}</div><div class="card"><h3>Leave requests</h3>${x.leave.map((l) => `<div class="activity-row"><div><b>${title(l.leave_type)}</b><small class="muted"> · ${date(l.start_date)}–${date(l.end_date)}</small></div><span class="badge ${l.status}">${title(l.status)}</span></div>`).join("") || '<p class="muted">No requests</p>'}</div></div>`;
+      )}</div><div class="dashboard-grid"><div class="card"><h3>${tr("My tasks")}</h3>${x.tasks.map((t) => `<div class="task-row"><i class="priority ${escapeHtml(t.priority)}"></i><div><b>${escapeHtml(t.title)}</b><small class="muted"> · ${date(t.due_date)}</small></div></div>`).join("") || `<p class="muted">${tr("No tasks")}</p>`}</div><div class="card"><h3>${title("Leave Requests")}</h3>${x.leave.map((l) => `<div class="activity-row"><div><b>${title(l.leave_type)}</b><small class="muted"> · ${date(l.start_date)}–${date(l.end_date)}</small></div><span class="badge ${escapeHtml(l.status)}">${title(l.status)}</span></div>`).join("") || `<p class="muted">${tr("No requests")}</p>`}</div></div>`;
   } catch (e) {
-    el.innerHTML = `${pageHead("Employee Self-Service", "Your account is secure.")}<div class="card empty">${escapeHtml(e.message)}<br><small>Link an employee profile with the same login email to enable this portal.</small></div>`;
+    el.innerHTML = `${pageHead(tr("Employee Self-Service"), tr("Your account is secure."))}<div class="card empty">${escapeHtml(e.message)}<br><small>${tr("Link an employee profile with the same login email to enable this portal.")}</small></div>`;
   }
 }
 async function requestLeave() {
-  const start = prompt("Start date (YYYY-MM-DD):"),
-    end = prompt("End date (YYYY-MM-DD):", start);
+  const data = await promptForm(tr("Request leave"), [
+    { name: "start", label: tr("Start date"), type: "date", required: true },
+    { name: "end", label: tr("End date"), type: "date", required: true },
+  ], tr("Submit request"));
+  if (!data) return;
+  const start = data.start,
+    end = data.end;
   if (!start || !end) return;
   try {
     await api("/portal/leave", {
@@ -637,7 +1220,7 @@ async function requestLeave() {
         reason: "Employee portal request",
       }),
     });
-    toast("Leave request submitted");
+    toast(tr("Leave request submitted"));
     render();
   } catch (e) {
     toast(e.message);
@@ -647,7 +1230,7 @@ async function reportsView() {
   const el = $("#content");
   try {
     const f = await api("/reports/finance");
-    el.innerHTML = `${pageHead("Reports & Exports", "Auditable finance, sales, HR and operations reporting.", `<button class="btn" onclick="downloadBusinessReport()">Download Excel workbook</button>`)}<div class="kpis"><div class="card kpi"><span class="kpi-label">Total income</span><div class="kpi-value">${money(f.totals.income)}</div></div><div class="card kpi"><span class="kpi-label">Total expenses</span><div class="kpi-value">${money(f.totals.expenses)}</div></div><div class="card kpi"><span class="kpi-label">Net profit</span><div class="kpi-value">${money(f.totals.income - f.totals.expenses)}</div></div></div><div class="card" style="margin-top:16px"><h3>Available report sheets</h3><p class="muted">Customers · Sales Pipeline · Finance · Invoices · Employees · Projects</p></div>`;
+    el.innerHTML = `${pageHead(title("Reports & Exports"), tr("Auditable finance, sales, HR and operations reporting."), `<button class="btn" onclick="downloadBusinessReport()">${tr("Download Excel workbook")}</button>`)}<div class="kpis"><div class="card kpi"><span class="kpi-label">${tr("Total income")}</span><div class="kpi-value">${money(f.totals.income)}</div></div><div class="card kpi"><span class="kpi-label">${tr("Total expenses")}</span><div class="kpi-value">${money(f.totals.expenses)}</div></div><div class="card kpi"><span class="kpi-label">${tr("Net profit")}</span><div class="kpi-value">${money(f.totals.income - f.totals.expenses)}</div></div></div><div class="card" style="margin-top:16px"><h3>${tr("Available report sheets")}</h3><p class="muted">${title("Customers")} · ${tr("Sales Pipeline")} · ${title("Finance")} · ${title("Invoices")} · ${title("Employees")} · ${title("Projects")}</p></div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -656,7 +1239,7 @@ async function integrationsView() {
   const el = $("#content");
   try {
     const rows = await api("/integrations");
-    el.innerHTML = `${pageHead("Provider Integrations", "Safe sandbox connectors ready for production credentials.")}<div class="grid3">${rows.map((x) => `<div class="card"><div class="card-head"><span class="badge ${x.status}">${title(x.status)}</span><span>${title(x.mode)}</span></div><h3>${title(x.provider)}</h3><p class="muted">${title(x.category)} integration</p><button class="btn secondary" onclick="testIntegration('${x.provider}')">Test connection</button></div>`).join("")}</div>`;
+    el.innerHTML = `${pageHead(title("Integrations"), tr("Safe sandbox connectors ready for production credentials."))}<div class="grid3">${rows.map((x) => `<div class="card"><div class="card-head"><span class="badge ${escapeHtml(x.status)}">${title(x.status)}</span><span>${title(x.mode)}</span></div><h3>${title(x.provider)}</h3><p class="muted">${title(x.category)} ${tr("integration")}</p><button class="btn secondary" onclick="testIntegration('${x.provider}')">${tr("Test connection")}</button></div>`).join("")}</div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -667,7 +1250,7 @@ async function testIntegration(provider) {
       method: "POST",
       body: "{}",
     });
-    toast(`${title(provider)}: ${x.status}`);
+    toast(`${title(provider)}: ${title(x.status)}`);
     render();
   } catch (e) {
     toast(e.message);
@@ -676,16 +1259,17 @@ async function testIntegration(provider) {
 async function securityView() {
   const el = $("#content");
   try {
-    const [x, passkeys, sessions] = await Promise.all([
+    const [x, passkeys, sessions, pushEnabled] = await Promise.all([
       api("/security/overview"),
       api("/auth/passkeys"),
       api("/auth/sessions"),
+      isPushSubscribed(),
     ]);
-    el.innerHTML = `${pageHead("Security Center", "Authentication, sessions, passkeys and sensitive activity.", `<button class="btn secondary" onclick="${user.twoFactorEnabled ? "disable2FA()" : "setup2FA()"}">${user.twoFactorEnabled ? "Disable" : "Enable"} 2FA</button><button class="btn" onclick="registerPasskey()">＋ Register passkey</button>`)}<div class="kpis">${[
-      ["Failed logins (24h)", x.failedLogins24h],
-      ["Active sessions", x.activeSessions],
-      ["Locked accounts", x.lockedAccounts],
-      ["Registered passkeys", x.passkeys],
+    el.innerHTML = `${pageHead(title("Security Center"), tr("Authentication, sessions, passkeys and sensitive activity."), `<button class="btn secondary" onclick="${user.twoFactorEnabled ? "disable2FA()" : "setup2FA()"}">${user.twoFactorEnabled ? tr("Disable") : tr("Enable")} ${tr("2FA")}</button><button class="btn secondary" onclick="togglePushNotifications()">${pushEnabled ? tr("Disable") : tr("Enable")} ${tr("push notifications")}</button><button class="btn" onclick="registerPasskey()">＋ ${tr("Register passkey")}</button>`)}<div class="kpis">${[
+      [tr("Failed logins (24h)"), x.failedLogins24h],
+      [tr("Active sessions"), x.activeSessions],
+      [tr("Locked accounts"), x.lockedAccounts],
+      [tr("Registered passkeys"), x.passkeys],
     ]
       .map(
         (v) =>
@@ -693,7 +1277,7 @@ async function securityView() {
       )
       .join(
         "",
-      )}</div><div class="dashboard-grid"><div class="card"><h3>My devices</h3>${sessions.map((s) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml((s.device || "Unknown").slice(0, 60))}</b><small class="muted" style="display:block">${s.ip} · ${date(s.last_used_at)}</small></div>${s.revoked_at ? '<span class="badge overdue">Revoked</span>' : `<button class="btn danger" onclick="revokeSession('${s.id}')">Revoke</button>`}</div>`).join("")}</div><div class="card"><h3>Passkeys</h3>${passkeys.map((p) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(p.device_name)}</b><small class="muted" style="display:block">Added ${date(p.created_at)}</small></div></div>`).join("") || '<p class="muted">No passkeys registered yet.</p>'}</div></div>`;
+      )}</div><div class="dashboard-grid"><div class="card"><h3>${tr("My devices")}</h3>${sessions.map((s) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml((s.device || tr("Unknown")).slice(0, 60))}</b><small class="muted" style="display:block">${s.ip} · ${date(s.last_used_at)}</small></div>${s.revoked_at ? `<span class="badge overdue">${tr("Revoked")}</span>` : `<button class="btn danger" onclick="revokeSession('${s.id}')">${tr("Revoke")}</button>`}</div>`).join("")}</div><div class="card"><h3>${tr("Passkeys")}</h3>${passkeys.map((p) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(p.device_name)}</b><small class="muted" style="display:block">${tr("Added")} ${date(p.created_at)}</small></div></div>`).join("") || `<p class="muted">${tr("No passkeys registered yet.")}</p>`}</div></div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -701,7 +1285,7 @@ async function securityView() {
 async function revokeSession(id) {
   try {
     await api("/auth/sessions/" + id, { method: "DELETE" });
-    toast("Session revoked");
+    toast(tr("Session revoked"));
     render();
   } catch (e) {
     toast(e.message);
@@ -710,31 +1294,39 @@ async function revokeSession(id) {
 async function setup2FA() {
   try {
     const x = await api("/auth/2fa/setup", { method: "POST", body: "{}" });
-    const code = prompt(
-      `Add this secret to your authenticator app, then enter the 6-digit code:\n\n${x.secret}`,
+    const data = await promptForm(
+      tr("Enable two-factor authentication"),
+      [{ name: "code", label: tr("6-digit code"), required: true }],
+      tr("Enable"),
+      `${tr("Add this secret to your authenticator app, then enter the 6-digit code it shows:")}<br><code>${escapeHtml(x.secret)}</code>`,
     );
-    if (!code) return;
+    if (!data || !data.code) return;
     await api("/auth/2fa/enable", {
       method: "POST",
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code: data.code }),
     });
     user.twoFactorEnabled = true;
-    toast("Two-factor authentication enabled");
+    toast(tr("Two-factor authentication enabled"));
     render();
   } catch (e) {
     toast(e.message);
   }
 }
 async function disable2FA() {
-  const code = prompt("Enter your current authenticator code:");
-  if (!code) return;
+  const data = await promptForm(
+    tr("Disable two-factor authentication"),
+    [{ name: "code", label: tr("Current authenticator code"), required: true }],
+    tr("Disable"),
+  );
+  if (!data || !data.code) return;
+  const code = data.code;
   try {
     await api("/auth/2fa/disable", {
       method: "POST",
       body: JSON.stringify({ code }),
     });
     user.twoFactorEnabled = false;
-    toast("Two-factor authentication disabled");
+    toast(tr("Two-factor authentication disabled"));
     render();
   } catch (e) {
     toast(e.message);
@@ -744,11 +1336,11 @@ async function monitoringView() {
   const el = $("#content");
   try {
     const x = await api("/monitoring/overview");
-    el.innerHTML = `${pageHead("Operations Monitoring", "Health, integrations, storage and unresolved errors.", `<button class="btn" onclick="createBackup()">Create backup</button>`)}<div class="kpis">${[
-      ["System", title(x.status)],
-      ["Uptime", `${Math.floor(x.uptimeSeconds / 60)} min`],
-      ["Database", `${Math.round(x.database.size / 1024)} KB`],
-      ["Unresolved events", x.unresolvedEvents.length],
+    el.innerHTML = `${pageHead(tr("Operations Monitoring"), tr("Health, integrations, storage and unresolved errors."), `<button class="btn" onclick="createBackup()">${tr("Create backup")}</button>`)}<div class="kpis">${[
+      [title("system"), title(x.status)],
+      [tr("Uptime"), `${Math.floor(x.uptimeSeconds / 60)} ${tr("min")}`],
+      [title("Database"), `${Math.round(x.database.size / 1024)} KB`],
+      [tr("Unresolved events"), x.unresolvedEvents.length],
     ]
       .map(
         (v) =>
@@ -756,7 +1348,7 @@ async function monitoringView() {
       )
       .join(
         "",
-      )}</div><div class="card" style="margin-top:16px"><h3>Provider health</h3>${x.integrations.map((i) => `<div class="activity-row"><div style="flex:1"><b>${title(i.provider)}</b><small class="muted" style="display:block">${title(i.mode)}</small></div><span class="badge ${i.status}">${title(i.status)}</span></div>`).join("")}</div>`;
+      )}</div><div class="card" style="margin-top:16px"><h3>${tr("Provider health")}</h3>${x.integrations.map((i) => `<div class="activity-row"><div style="flex:1"><b>${title(i.provider)}</b><small class="muted" style="display:block">${title(i.mode)}</small></div><span class="badge ${escapeHtml(i.status)}">${title(i.status)}</span></div>`).join("")}</div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -765,16 +1357,16 @@ async function backupsView() {
   const el = $("#content");
   try {
     const rows = await api("/backups");
-    el.innerHTML = `${pageHead("Backup Center", "Create and retrieve checksum-verified point-in-time database backups.", `<button class="btn" onclick="createBackup()">＋ New backup</button>`)}<div class="card">${rows.map((b) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(b.filename)}</b><small class="muted" style="display:block">${date(b.created_at)} · ${Math.round((b.size || 0) / 1024)} KB · ${escapeHtml((b.checksum || "").slice(0, 12))}</small></div><span class="badge ${b.status}">${title(b.status)}</span>${b.status === "completed" ? `<button class="btn secondary" onclick="downloadProtected('/backups/${b.id}/download','${b.filename}')">Download</button>` : ""}</div>`).join("") || '<div class="empty">No backups yet</div>'}</div>`;
+    el.innerHTML = `${pageHead(title("Backups"), tr("Create and retrieve checksum-verified point-in-time database backups."), `<button class="btn" onclick="createBackup()">＋ ${tr("New backup")}</button>`)}<div class="card">${rows.map((b) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(b.filename)}</b><small class="muted" style="display:block">${date(b.created_at)} · ${Math.round((b.size || 0) / 1024)} KB · ${escapeHtml((b.checksum || "").slice(0, 12))}</small></div><span class="badge ${escapeHtml(b.status)}">${title(b.status)}</span>${b.status === "completed" ? `<button class="btn secondary" onclick="downloadProtected('/backups/${b.id}/download','${escapeJs(b.filename)}')">${tr("Download")}</button>` : ""}</div>`).join("") || `<div class="empty">${tr("No backups yet")}</div>`}</div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
 }
 async function createBackup() {
   try {
-    toast("Creating backup…");
+    toast(tr("Creating backup…"));
     await api("/backups", { method: "POST", body: "{}" });
-    toast("Backup completed");
+    toast(tr("Backup completed"));
     render();
   } catch (e) {
     toast(e.message);
@@ -785,12 +1377,12 @@ async function settingsView() {
   try {
     const s = await api("/business-settings");
     businessSettingsCache = s;
-    el.innerHTML = `${pageHead("Business Settings", "Generated values can be replaced with your real company information.")}<div class="grid3">${Object.entries(
+    el.innerHTML = `${pageHead(title("Business Settings"), tr("Generated values can be replaced with your real company information."))}<div class="grid3">${Object.entries(
       s,
     )
       .map(
         ([k, v]) =>
-          `<div class="card"><span class="kpi-label">${title(k)}</span><p style="font-size:16px;margin:10px 0;min-height:42px">${escapeHtml(v)}</p><button class="btn secondary" onclick="editSetting('${k}')">Edit</button></div>`,
+          `<div class="card"><span class="kpi-label">${title(k)}</span><p style="font-size:16px;margin:10px 0;min-height:42px">${escapeHtml(v)}</p><button class="btn secondary" onclick="editSetting('${k}')">${tr("Edit")}</button></div>`,
       )
       .join("")}</div>`;
   } catch (e) {
@@ -798,17 +1390,24 @@ async function settingsView() {
   }
 }
 async function editSetting(key) {
-  const value = prompt(
-    `Update ${title(key)}:`,
-    businessSettingsCache[key] || "",
+  const data = await promptForm(
+    `${tr("Update")} ${title(key)}`,
+    [
+      {
+        name: "value",
+        label: title(key),
+        value: businessSettingsCache[key] || "",
+      },
+    ],
+    tr("Save"),
   );
-  if (value === null) return;
+  if (!data) return;
   try {
     await api("/business-settings/" + key, {
       method: "PUT",
-      body: JSON.stringify({ value }),
+      body: JSON.stringify({ value: data.value }),
     });
-    toast("Setting updated");
+    toast(tr("Setting updated"));
     render();
   } catch (e) {
     toast(e.message);
@@ -816,21 +1415,27 @@ async function editSetting(key) {
 }
 async function customer360(customerId) {
   const el = $("#content");
-  el.innerHTML = '<div class="empty">Loading customer workspace…</div>';
+  el.innerHTML = `<div class="empty">${tr("Loading customer workspace…")}</div>`;
   try {
     const x = await api(`/customers/${customerId}/360`),
       c = x.customer;
-    el.innerHTML = `${pageHead(c.company_name, `${c.contact_name || ""} · ${c.email || ""} · ${c.phone || ""}`, `<button class="btn secondary" onclick="openModule('customers')">← Customers</button><button class="btn" onclick="addCustomerContact('${c.id}')">＋ Contact</button><button class="btn secondary" onclick="sendWhatsApp('${c.id}','${escapeJs(c.phone || "")}')">WhatsApp</button>`)}<div class="kpis">${[
+    let tagList = [];
+    try {
+      tagList = JSON.parse(c.tags || "[]");
+    } catch {
+      /* leave empty if stored value isn't valid JSON */
+    }
+    el.innerHTML = `${pageHead(c.company_name, `${c.contact_name || ""} · ${c.email || ""} · ${c.phone || ""}`, `<button class="btn secondary" onclick="openModule('customers')">← ${title("Customers")}</button><button class="btn" onclick="addCustomerContact('${c.id}')">＋ ${tr("Contact")}</button><button class="btn secondary" onclick="sendWhatsApp('${c.id}','${escapeJs(c.phone || "")}')">${tr("WhatsApp")}</button>`)}${tagList.length ? `<div style="margin:-10px 0 20px">${tagList.map((t) => `<span class="badge">${escapeHtml(t)}</span>`).join(" ")}</div>` : ""}<div class="kpis">${[
       [
-        "Pipeline",
+        tr("Pipeline"),
         money(x.deals.reduce((n, d) => n + Number(d.value || 0), 0)),
       ],
-      ["Projects", x.projects.length],
+      [tr("Projects"), x.projects.length],
       [
-        "Invoices",
+        tr("Invoices"),
         money(x.invoices.reduce((n, i) => n + Number(i.total || 0), 0)),
       ],
-      ["Open tasks", x.tasks.filter((t) => t.status !== "done").length],
+      [tr("Open tasks"), x.tasks.filter((t) => t.status !== "done").length],
     ]
       .map(
         (v) =>
@@ -838,7 +1443,7 @@ async function customer360(customerId) {
       )
       .join(
         "",
-      )}</div><div class="dashboard-grid"><section class="card"><div class="card-head"><h3>Contacts</h3></div>${x.contacts.map((p) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(p.name)}</b><small class="muted" style="display:block">${escapeHtml(p.title || "")} · ${escapeHtml(p.email || "")} · ${escapeHtml(p.phone || "")}</small></div>${p.primary_contact ? '<span class="badge active">Primary</span>' : ""}</div>`).join("") || '<p class="muted">No additional contacts yet.</p>'}</section><section class="card"><h3>Recent activity</h3>${
+      )}</div><div class="dashboard-grid"><section class="card"><div class="card-head"><h3>${tr("Contacts")}</h3></div>${x.contacts.map((p) => `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(p.name)}</b><small class="muted" style="display:block">${escapeHtml(p.title || "")} · ${escapeHtml(p.email || "")} · ${escapeHtml(p.phone || "")}</small></div>${p.primary_contact ? `<span class="badge active">${tr("Primary")}</span>` : ""}</div>`).join("") || `<p class="muted">${tr("No additional contacts yet.")}</p>`}</section><section class="card"><h3>${tr("Recent activity")}</h3>${
       x.activities
         .concat(
           x.communications.map((a) => ({
@@ -856,8 +1461,33 @@ async function customer360(customerId) {
           (a) =>
             `<div class="activity-row"><span>◦</span><div><b>${escapeHtml(a.title || a.type)}</b><small class="muted" style="display:block">${escapeHtml(a.description || "")} · ${date(a.occurred_at)}</small></div></div>`,
         )
-        .join("") || '<p class="muted">Activity will appear here.</p>'
-    }</section></div><div class="grid3" style="margin-top:16px"><section class="card"><h3>Deals</h3>${miniRows(x.deals, "title", "value")}</section><section class="card"><h3>Projects</h3>${miniRows(x.projects, "name", "status")}</section><section class="card"><h3>Invoices</h3>${miniRows(x.invoices, "number", "total")}</section></div>`;
+        .join("") || `<p class="muted">${tr("Activity will appear here.")}</p>`
+    }</section></div><div class="grid3" style="margin-top:16px"><section class="card"><h3>${title("Deals")}</h3>${miniRows(x.deals, "title", "value")}</section><section class="card"><h3>${title("Projects")}</h3>${miniRows(x.projects, "name", "status")}</section><section class="card"><h3>${title("Invoices")}</h3>${miniRows(x.invoices, "number", "total")}</section>${c.notes ? `<section class="card"><h3>${title("Notes")}</h3><p class="muted">${escapeHtml(c.notes)}</p></section>` : ""}</div>`;
+  } catch (e) {
+    el.innerHTML = errorView(e);
+  }
+}
+async function employee360(employeeId) {
+  const el = $("#content");
+  el.innerHTML = `<div class="empty">${tr("Loading employee workspace…")}</div>`;
+  try {
+    const x = await api(`/employees/${employeeId}/360`),
+      e = x.employee,
+      recentAttendance = x.attendance.slice(0, 10),
+      dayWord = tr("days");
+    el.innerHTML = `${pageHead(e.full_name, `${e.position || ""} · ${e.department || ""} · ${e.email || ""}`, `<button class="btn secondary" onclick="openModule('employees')">← ${title("Employees")}</button>`)}<div class="kpis">${[
+      [tr("Employment"), title(e.status)],
+      [tr("Vacation balance"), `${e.vacation_days || 0} ${dayWord}`],
+      [tr("Sick balance"), `${e.sick_days || 0} ${dayWord}`],
+      [tr("Open tasks"), x.tasks.filter((t) => t.status !== "done").length],
+    ]
+      .map(
+        (v) =>
+          `<div class="card kpi"><span class="kpi-label">${v[0]}</span><div class="kpi-value">${v[1]}</div></div>`,
+      )
+      .join(
+        "",
+      )}</div><div class="dashboard-grid"><section class="card"><h3>${tr("Recent attendance")}</h3>${recentAttendance.map((a) => `<div class="activity-row"><div style="flex:1">${date(a.date)}</div><span class="badge ${escapeHtml(a.status)}">${title(a.status)}</span></div>`).join("") || `<p class="muted">${tr("No attendance records yet.")}</p>`}</section><section class="card"><h3>${title("Leave Requests")}</h3>${x.leave.map((l) => `<div class="activity-row"><div style="flex:1"><b>${title(l.leave_type)}</b><small class="muted" style="display:block">${date(l.start_date)}–${date(l.end_date)}</small></div><span class="badge ${escapeHtml(l.status)}">${title(l.status)}</span></div>`).join("") || `<p class="muted">${tr("No leave requests yet.")}</p>`}</section></div><div class="grid3" style="margin-top:16px"><section class="card"><h3>${tr("Payroll history")}</h3>${miniRows(x.payroll, "month", "net_salary")}</section><section class="card"><h3>${tr("Assigned tasks")}</h3>${miniRows(x.tasks, "title", "status")}</section>${e.performance_notes ? `<section class="card"><h3>${title("performance_notes")}</h3><p class="muted">${escapeHtml(e.performance_notes)}</p></section>` : ""}</div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -870,31 +1500,52 @@ function miniRows(rows, main, detail) {
         (r) =>
           `<div class="activity-row"><div style="flex:1"><b>${escapeHtml(r[main] || "")}</b></div><span>${["value", "total", "amount"].includes(detail) ? money(r[detail]) : title(r[detail])}</span></div>`,
       )
-      .join("") || '<p class="muted">No records yet.</p>'
+      .join("") || `<p class="muted">${tr("No records yet.")}</p>`
   );
 }
 async function addCustomerContact(customerId) {
-  const name = prompt("Contact name:");
-  if (!name) return;
-  const email = prompt("Email (optional):") || "",
-    phone = prompt("Phone (optional):") || "";
+  const data = await promptForm(
+    tr("Add contact"),
+    [
+      { name: "name", label: tr("Contact name"), required: true },
+      { name: "email", label: tr("Email (optional)"), type: "email" },
+      { name: "phone", label: tr("Phone (optional)"), type: "tel" },
+    ],
+    tr("Add contact"),
+  );
+  if (!data || !data.name) return;
   try {
     await api(`/customers/${customerId}/contacts`, {
       method: "POST",
-      body: JSON.stringify({ name, email, phone }),
+      body: JSON.stringify({
+        name: data.name,
+        email: data.email || "",
+        phone: data.phone || "",
+      }),
     });
-    toast("Contact added");
+    toast(tr("Contact added"));
     customer360(customerId);
   } catch (e) {
     toast(e.message);
   }
 }
 async function sendWhatsApp(customerId, phone) {
-  const message = prompt(
-    "Sandbox WhatsApp message:",
-    `Hello, this is GREECE Maintenance & Staffing regarding your account.`,
+  const data = await promptForm(
+    tr("Sandbox WhatsApp message"),
+    [
+      {
+        name: "message",
+        label: tr("Message"),
+        required: true,
+        value: tr(
+          "Hello, this is GREECE Maintenance & Staffing regarding your account.",
+        ),
+      },
+    ],
+    tr("Send"),
   );
-  if (!message) return;
+  if (!data || !data.message) return;
+  const message = data.message;
   try {
     const x = await api("/integrations/whatsapp/jobs", {
       method: "POST",
@@ -903,7 +1554,7 @@ async function sendWhatsApp(customerId, phone) {
         payload: { customer_id: customerId, phone, message },
       }),
     });
-    toast(`WhatsApp sandbox job ${x.status}`);
+    toast(`${tr("WhatsApp sandbox job")} ${title(x.status)}`);
   } catch (e) {
     toast(e.message);
   }
@@ -911,7 +1562,7 @@ async function sendWhatsApp(customerId, phone) {
 function openFileUpload() {
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="modal-backdrop" id="modal"><form class="modal" id="fileForm"><div class="card-head"><div><span class="eyebrow">Secure storage</span><h2>Upload a file</h2></div><button type="button" class="icon-btn" aria-label="Close" onclick="$('#modal').remove()">×</button></div><div class="field"><label for="secureFile">File (PDF, image, text, CSV or XLSX; max 10 MB)</label><input id="secureFile" name="file" type="file" required></div><div class="form-grid"><div class="field"><label>Related record type</label><select name="entity_type"><option value="">General</option><option value="customer">Customer</option><option value="project">Project</option><option value="employee">Employee</option></select></div><div class="field"><label>Related record ID</label><input name="entity_id"></div><div class="field"><label>Minimum access role</label><select name="access_role"><option>employee</option><option>manager</option><option>administrator</option></select></div></div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">Cancel</button><button class="btn">Upload securely</button></div></form></div>`,
+    `<div class="modal-backdrop" id="modal"><form class="modal" id="fileForm"><div class="card-head"><div><span class="eyebrow">${tr("Secure storage")}</span><h2>${tr("Upload a file")}</h2></div><button type="button" class="icon-btn" aria-label="${tr("Close")}" onclick="$('#modal').remove()">×</button></div><div class="field"><label for="secureFile">${tr("File (PDF, image, text, CSV or XLSX; max 10 MB)")}</label><input id="secureFile" name="file" type="file" required></div><div class="form-grid"><div class="field"><label>${tr("Related record type")}</label><select name="entity_type"><option value="">${tr("General")}</option><option value="customer">${title("customer")}</option><option value="project">${title("project")}</option><option value="employee">${title("employee")}</option></select></div><div class="field"><label>${tr("Related record ID")}</label><input name="entity_id"></div><div class="field"><label>${tr("Minimum access role")}</label><select name="access_role"><option value="employee">${title("employee")}</option><option value="manager">${title("manager")}</option><option value="administrator">${title("administrator")}</option></select></div></div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">${tr("Cancel")}</button><button class="btn">${tr("Upload securely")}</button></div></form></div>`,
   );
   $("#fileForm").onsubmit = uploadFile;
 }
@@ -921,7 +1572,7 @@ async function uploadFile(e) {
     file = form.file.files[0];
   if (!file) return;
   try {
-    toast("Uploading…");
+    toast(tr("Uploading…"));
     const data = await fileToDataUrl(file);
     await api("/files", {
       method: "POST",
@@ -934,7 +1585,7 @@ async function uploadFile(e) {
       }),
     });
     $("#modal").remove();
-    toast("File uploaded");
+    toast(tr("File uploaded"));
     render();
   } catch (error) {
     toast(error.message);
@@ -965,6 +1616,15 @@ async function downloadProtected(url, filename) {
     a.download = filename || "download";
     a.click();
     setTimeout(() => URL.revokeObjectURL(href), 1500);
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function emailInvoice(id) {
+  try {
+    toast(tr("Sending invoice…"));
+    await api(`/invoices/${id}/email`, { method: "POST", body: "{}" });
+    toast(tr("Invoice emailed to customer"));
   } catch (e) {
     toast(e.message);
   }
@@ -1070,9 +1730,59 @@ function serializeCredential(c) {
     response,
   };
 }
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4),
+    base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/"),
+    rawData = atob(base64),
+    output = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i);
+  return output;
+}
+async function isPushSubscribed() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window))
+    return false;
+  try {
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 2000)),
+      reg = await Promise.race([navigator.serviceWorker.ready, timeout]);
+    if (!reg) return false;
+    return !!(await reg.pushManager.getSubscription());
+  } catch {
+    return false;
+  }
+}
+async function togglePushNotifications() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window))
+    return toast(tr("Push notifications are not supported by this browser"));
+  try {
+    const reg = await navigator.serviceWorker.ready,
+      existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await api("/push/unsubscribe", {
+        method: "POST",
+        body: JSON.stringify({ endpoint: existing.endpoint }),
+      });
+      await existing.unsubscribe();
+      toast(tr("Push notifications disabled"));
+    } else {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted")
+        return toast(tr("Notification permission was not granted"));
+      const { publicKey } = await api("/push/vapid-public-key"),
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+      await api("/push/subscribe", { method: "POST", body: JSON.stringify(sub) });
+      toast(tr("Push notifications enabled"));
+    }
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
+}
 async function registerPasskey() {
   if (!window.PublicKeyCredential)
-    return toast("Passkeys are not supported by this browser");
+    return toast(tr("Passkeys are not supported by this browser"));
   try {
     const options = prepareRegistrationOptions(
         await api("/auth/passkeys/register/options", {
@@ -1081,11 +1791,19 @@ async function registerPasskey() {
         }),
       ),
       credential = await navigator.credentials.create({ publicKey: options }),
-      device_name =
-        prompt(
-          "Name this passkey/device:",
-          navigator.platform || "My device",
-        ) || "My device";
+      nameData = await promptForm(
+        tr("Name this passkey"),
+        [
+          {
+            name: "device_name",
+            label: tr("Device name"),
+            value: navigator.platform || tr("My device"),
+            required: true,
+          },
+        ],
+        tr("Save"),
+      ),
+      device_name = nameData?.device_name || tr("My device");
     await api("/auth/passkeys/register/verify", {
       method: "POST",
       body: JSON.stringify({
@@ -1093,21 +1811,26 @@ async function registerPasskey() {
         device_name,
       }),
     });
-    toast("Passkey registered");
+    toast(tr("Passkey registered"));
     render();
   } catch (e) {
     toast(
       e.name === "NotAllowedError"
-        ? "Passkey registration was cancelled"
+        ? tr("Passkey registration was cancelled")
         : e.message,
     );
   }
 }
 async function passkeyLogin() {
   if (!window.PublicKeyCredential)
-    return toast("Passkeys are not supported by this browser");
-  const email = prompt("Account email:", "admin@greece.co.il");
-  if (!email) return;
+    return toast(tr("Passkeys are not supported by this browser"));
+  const data = await promptForm(
+    tr("Sign in with a passkey"),
+    [{ name: "email", label: tr("Account email"), type: "email", required: true }],
+    tr("Continue"),
+  );
+  if (!data || !data.email) return;
+  const email = data.email;
   try {
     const options = prepareAuthenticationOptions(
         await api("/auth/passkeys/options", {
@@ -1127,13 +1850,13 @@ async function passkeyLogin() {
   } catch (e) {
     toast(
       e.name === "NotAllowedError"
-        ? "Passkey sign-in was cancelled"
+        ? tr("Passkey sign-in was cancelled")
         : e.message,
     );
   }
 }
 function pageHead(titleText, desc, actions = "") {
-  return `<div class="page-head"><div><span class="eyebrow">Business OS</span><h1>${titleText}</h1><p class="muted">${desc}</p></div>${actions}</div>`;
+  return `<div class="page-head"><div><span class="eyebrow">${tr("Business OS")}</span><h1>${escapeHtml(titleText)}</h1><p class="muted">${escapeHtml(desc)}</p></div>${actions}</div>`;
 }
 function errorView(e) {
   return `<div class="empty">${escapeHtml(e.message)}</div>`;
@@ -1141,12 +1864,14 @@ function errorView(e) {
 function cashChart(rows) {
   if (!rows.length) rows = [{ month: "Now", income: 1, expenses: 0 }];
   const max = Math.max(...rows.flatMap((x) => [x.income, x.expenses]), 1);
-  return `<div class="chart">${rows.map((r) => `<div class="bar-group"><i class="bar" style="height:${(r.income / max) * 100}%" title="Income ${money(r.income)}"></i><i class="bar expense" style="height:${(r.expenses / max) * 100}%" title="Expenses ${money(r.expenses)}"></i><span class="bar-label">${r.month}</span></div>`).join("")}</div><div style="display:flex;gap:20px;margin-top:35px"><span>● <small class="muted">Income</small></span><span style="color:var(--blue)">● <small class="muted">Expenses</small></span></div>`;
+  return `<div class="chart">${rows.map((r) => `<div class="bar-group"><i class="bar" style="height:${(r.income / max) * 100}%" title="${title("income")} ${money(r.income)}"></i><i class="bar expense" style="height:${(r.expenses / max) * 100}%" title="${title("expense")} ${money(r.expenses)}"></i><span class="bar-label">${r.month}</span></div>`).join("")}</div><div style="display:flex;gap:20px;margin-top:35px"><span>● <small class="muted">${title("income")}</small></span><span style="color:var(--blue)">● <small class="muted">${title("expense")}</small></span></div>`;
 }
+let selectedIds = new Set();
 async function tableView() {
   const el = $("#content"),
     m = modules[current];
-  el.innerHTML = '<div class="empty">Loading data…</div>';
+  el.innerHTML = `<div class="empty">${tr("Loading data…")}</div>`;
+  selectedIds = new Set();
   try {
     const x = await api(
       `/${current}?page=${page}&limit=20&search=${encodeURIComponent(search)}`,
@@ -1158,29 +1883,118 @@ async function tableView() {
         (k) => !["id", "before_data", "after_data"].includes(k),
       )
     ).slice(0, 7);
-    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">${m.group}</span><h1>${m.label}</h1><p class="muted">${x.pagination.total} records · centrally managed and audited</p></div>${m.readOnly ? "" : `<button class="btn" onclick="openCreate()">＋ Add ${m.label.replace(/s$/, "")}</button>`}</div><div class="toolbar"><input class="input" value="${escapeHtml(search)}" placeholder="Search ${m.label.toLowerCase()}…" onkeydown="if(event.key==='Enter'){search=this.value;page=1;render()}"><button class="btn secondary" onclick="search=$('.toolbar .input').value;page=1;render()">Filter</button><button class="btn secondary" onclick="exportCsv()">⇩ Export CSV</button>${current === "invoices" ? '<button class="btn secondary" onclick="downloadBusinessReport()">Export Excel</button>' : ""}</div><section class="card table-card"><div class="table-scroll"><table><thead><tr>${fields.map((f) => `<th>${title(f)}</th>`).join("")}<th>Actions</th></tr></thead><tbody>${x.data.map((r) => `<tr>${fields.map((f) => `<td>${cell(f, r[f])}</td>`).join("")}<td>${rowActions(r, m)}</td></tr>`).join("")}</tbody></table></div>${x.data.length ? "" : `<div class="empty">No ${m.label.toLowerCase()} found.</div>`}<div class="pager"><span class="muted">Page ${x.pagination.page} of ${Math.max(1, x.pagination.pages)}</span><div class="pager-buttons"><button class="btn secondary" ${page <= 1 ? "disabled" : ""} onclick="page--;render()">Previous</button><button class="btn secondary" ${page >= x.pagination.pages ? "disabled" : ""} onclick="page++;render()">Next</button></div></div></section>`;
+    const selectCol = m.readOnly
+      ? ""
+      : `<th><input type="checkbox" aria-label="${tr("Select all")}" onclick="toggleSelectAll(this.checked)"></th>`;
+    const moduleLabel = title(m.label),
+      moduleLabelLower = moduleLabel.toLowerCase(),
+      addLabel = lang === "he" ? moduleLabel : m.label.replace(/s$/, "");
+    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">${title(m.group)}</span><h1>${moduleLabel}</h1><p class="muted">${x.pagination.total} ${tr("records · centrally managed and audited")}</p></div>${current === "users" ? `<button class="btn" onclick="inviteUser()">＋ ${tr("Invite user")}</button>` : m.readOnly ? "" : `<button class="btn" onclick="openCreate()">＋ ${tr("Add")} ${addLabel}</button>`}</div><div class="toolbar"><input class="input" value="${escapeHtml(search)}" placeholder="${tr("Search")} ${moduleLabelLower}…" onkeydown="if(event.key==='Enter'){search=this.value;page=1;render()}"><button class="btn secondary" onclick="search=$('.toolbar .input').value;page=1;render()">${tr("Filter")}</button><button class="btn secondary" onclick="exportCsv()">⇩ ${tr("Export CSV")}</button>${current === "invoices" ? `<button class="btn secondary" onclick="downloadBusinessReport()">${tr("Export Excel")}</button>` : ""}</div><div id="bulkBar" class="toolbar" style="display:none"></div><section class="card table-card"><div class="table-scroll"><table><thead><tr>${selectCol}${fields.map((f) => `<th>${title(f)}</th>`).join("")}<th>${tr("Actions")}</th></tr></thead><tbody>${x.data.map((r) => `<tr>${m.readOnly ? "" : `<td><input type="checkbox" class="row-select" aria-label="${tr("Select row")}" data-id="${escapeHtml(r.id)}" onclick="toggleRowSelect('${escapeJs(r.id)}',this.checked)"></td>`}${fields.map((f) => `<td>${cell(f, r[f])}</td>`).join("")}<td>${rowActions(r, m)}</td></tr>`).join("")}</tbody></table></div>${x.data.length ? "" : `<div class="empty">${tr("No")} ${moduleLabelLower} ${tr("found.")}</div>`}<div class="pager"><span class="muted">${tr("Page")} ${x.pagination.page} ${tr("of")} ${Math.max(1, x.pagination.pages)}</span><div class="pager-buttons"><button class="btn secondary" ${page <= 1 ? "disabled" : ""} onclick="page--;render()">${tr("Previous")}</button><button class="btn secondary" ${page >= x.pagination.pages ? "disabled" : ""} onclick="page++;render()">${tr("Next")}</button></div></div></section>`;
   } catch (e) {
     el.innerHTML = `<div class="empty">${e.message}</div>`;
+  }
+}
+function updateBulkBar() {
+  const bar = $("#bulkBar");
+  if (!bar) return;
+  if (selectedIds.size === 0) {
+    bar.style.display = "none";
+    bar.innerHTML = "";
+    return;
+  }
+  const statusOptions = STATUS_OPTIONS[current];
+  bar.style.display = "flex";
+  bar.innerHTML = `<span class="muted">${selectedIds.size} ${tr("selected")}</span>${
+    statusOptions
+      ? `<select id="bulkStatus"><option value="">${tr("Set status…")}</option>${statusOptions.map((o) => `<option value="${o}">${title(o)}</option>`).join("")}</select><button class="btn secondary" onclick="bulkSetStatus()">${tr("Apply")}</button>`
+      : ""
+  }<button class="btn danger" onclick="bulkDelete()">${tr("Delete selected")}</button>`;
+}
+function toggleSelectAll(checked) {
+  $$(".row-select").forEach((cb) => {
+    cb.checked = checked;
+    if (checked) selectedIds.add(cb.dataset.id);
+    else selectedIds.delete(cb.dataset.id);
+  });
+  updateBulkBar();
+}
+function toggleRowSelect(id, checked) {
+  if (checked) selectedIds.add(id);
+  else selectedIds.delete(id);
+  updateBulkBar();
+}
+async function bulkDelete() {
+  const ids = [...selectedIds];
+  if (!ids.length) return;
+  const recordWord =
+    lang === "he" ? (ids.length > 1 ? "רשומות" : "רשומה") : `record${ids.length > 1 ? "s" : ""}`;
+  if (
+    !(await confirmDialog(
+      lang === "he"
+        ? `למחוק ${ids.length} ${recordWord} שנבחרו? פעולה זו מתועדת.`
+        : `Delete ${ids.length} selected ${recordWord}? This action is logged.`,
+    ))
+  )
+    return;
+  try {
+    await Promise.all(
+      ids.map((id) => api(`/${current}/${id}`, { method: "DELETE" })),
+    );
+    toast(
+      lang === "he"
+        ? `${ids.length} ${recordWord} נמחקו`
+        : `${ids.length} ${recordWord} deleted`,
+    );
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function bulkSetStatus() {
+  const status = $("#bulkStatus")?.value;
+  const ids = [...selectedIds];
+  if (!status || !ids.length) return;
+  try {
+    await Promise.all(
+      ids.map((id) =>
+        api(`/${current}/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status }),
+        }),
+      ),
+    );
+    const recordWord =
+      lang === "he" ? (ids.length > 1 ? "רשומות" : "רשומה") : `record${ids.length > 1 ? "s" : ""}`;
+    toast(
+      lang === "he"
+        ? `הסטטוס עודכן עבור ${ids.length} ${recordWord}`
+        : `Status updated for ${ids.length} ${recordWord}`,
+    );
+    render();
+  } catch (e) {
+    toast(e.message);
   }
 }
 function rowActions(r, m) {
   const extra =
     current === "customers"
       ? `<button class="btn secondary" onclick="customer360('${r.id}')">360°</button> `
-      : current === "invoices"
-        ? `<button class="btn secondary" onclick="downloadProtected('/invoices/${r.id}/pdf','${escapeJs(r.number)}.pdf')">PDF</button> `
+      : current === "employees"
+        ? `<button class="btn secondary" onclick="employee360('${r.id}')">360°</button> `
+        : current === "invoices"
+        ? `<button class="btn secondary" onclick="downloadProtected('/invoices/${r.id}/pdf','${escapeJs(r.number)}.pdf')">${tr("PDF")}</button> <button class="btn secondary" onclick="emailInvoice('${r.id}')">${tr("Email")}</button> `
         : current === "documents"
-          ? `<button class="btn secondary" onclick="downloadProtected('/files/${r.id}/download','${escapeJs(r.name)}')">Download</button> `
+          ? `<button class="btn secondary" onclick="downloadProtected('/files/${r.id}/download','${escapeJs(r.name)}')">${tr("Download")}</button> `
           : current === "notifications" && !r.read_at
-            ? `<button class="btn secondary" onclick="markNotificationRead('${r.id}')">Mark read</button> `
+            ? `<button class="btn secondary" onclick="markNotificationRead('${r.id}')">${tr("Mark read")}</button> `
             : current === "leave_requests" && r.status === "pending"
-              ? `<button class="btn" onclick="decideLeave('${r.id}','approved')">Approve</button> <button class="btn danger" onclick="decideLeave('${r.id}','rejected')">Reject</button> `
+              ? `<button class="btn" onclick="decideLeave('${r.id}','approved')">${tr("Approve")}</button> <button class="btn danger" onclick="decideLeave('${r.id}','rejected')">${tr("Reject")}</button> `
               : "";
   return (
     extra +
     (m.readOnly
       ? ""
-      : `<button class="btn secondary" onclick="openEdit('${r.id}')">Edit</button> <button class="btn danger" onclick="removeRecord('${r.id}')">Delete</button>`)
+      : `<button class="btn secondary" onclick="openEdit('${r.id}')">${tr("Edit")}</button> <button class="btn danger" onclick="removeRecord('${r.id}')">${tr("Delete")}</button>`)
   );
 }
 async function markNotificationRead(id) {
@@ -1197,7 +2011,7 @@ async function decideLeave(id, decision) {
       method: "POST",
       body: JSON.stringify({ decision }),
     });
-    toast(`Leave request ${decision}`);
+    toast(`${tr("Leave request")} ${title(decision)}`);
     render();
   } catch (e) {
     toast(e.message);
@@ -1205,15 +2019,17 @@ async function decideLeave(id, decision) {
 }
 async function pipeline() {
   const el = $("#content");
-  el.innerHTML = '<div class="empty">Loading sales pipeline…</div>';
+  el.innerHTML = `<div class="empty">${tr("Loading sales pipeline…")}</div>`;
   try {
     const x = await api("/deals?limit=100");
     cache.deals = x.data;
     const stages = ["qualification", "proposal", "negotiation", "won", "lost"];
-    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">CRM</span><h1>Sales pipeline</h1><p class="muted">Track value, probability and expected close across every opportunity.</p></div><button class="btn" onclick="openCreate()">＋ New deal</button></div><div class="pipeline">${stages
+    const q = search.trim().toLowerCase(),
+      data = q ? x.data.filter((d) => d.title.toLowerCase().includes(q)) : x.data;
+    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">${title("crm")}</span><h1>${tr("Sales pipeline")}</h1><p class="muted">${tr("Track value, probability and expected close across every opportunity.")}</p></div><button class="btn" onclick="openCreate()">＋ ${tr("New deal")}</button></div><div class="toolbar"><input class="input" value="${escapeHtml(search)}" placeholder="${tr("Search deals…")}" onkeydown="if(event.key==='Enter'){search=this.value;render()}"><button class="btn secondary" onclick="search=$('.toolbar .input').value;render()">${tr("Filter")}</button><button class="btn secondary" onclick="exportCsv()">⇩ ${tr("Export CSV")}</button></div><div class="pipeline">${stages
       .map((s) => {
-        const rows = x.data.filter((d) => d.stage === s);
-        return `<div class="column"><div class="column-head"><span>${title(s)}</span><span class="badge">${rows.length}</span></div>${rows.map((d) => `<div class="deal-card" onclick="openEdit('${d.id}')"><b>${escapeHtml(d.title)}</b><div class="muted" style="margin-top:5px">Close ${date(d.expected_close) || "not set"}</div><div class="deal-value">${money(d.value)}</div><div class="progress" style="margin-top:9px"><i style="width:${d.probability || 0}%"></i></div></div>`).join("")}</div>`;
+        const rows = data.filter((d) => d.stage === s);
+        return `<div class="column"><div class="column-head"><span>${title(s)}</span><span class="badge">${rows.length}</span></div>${rows.map((d) => `<div class="deal-card" onclick="openEdit('${d.id}')"><b>${escapeHtml(d.title)}</b><div class="muted" style="margin-top:5px">${tr("Close")} ${date(d.expected_close) || tr("not set")}</div><div class="deal-value">${money(d.value)}</div><div class="progress" style="margin-top:9px"><i style="width:${d.probability || 0}%"></i></div></div>`).join("")}</div>`;
       })
       .join("")}</div>`;
   } catch (e) {
@@ -1232,8 +2048,10 @@ function openForm(record) {
     fields = m.fields || [];
   document.body.insertAdjacentHTML(
     "beforeend",
-    `<div class="modal-backdrop" id="modal"><form class="modal" id="recordForm"><div class="card-head"><div><span class="eyebrow">${record ? "Update" : "Create"}</span><h2>${record ? "Edit" : "New"} ${m.label.replace(/s$/, "")}</h2></div><button type="button" class="icon-btn" aria-label="Close" onclick="$('#modal').remove()">×</button></div><div class="form-grid">${fields.map((f) => inputField(f, record?.[f])).join("")}</div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">Cancel</button><button class="btn">${record ? "Save changes" : "Create record"}</button></div></form></div>`,
+    `<div class="modal-backdrop" id="modal"><form class="modal" id="recordForm"><div class="card-head"><div><span class="eyebrow">${record ? tr("Update") : tr("Create")}</span><h2>${record ? tr("Edit") : tr("New")} ${lang === "he" ? title(m.label) : m.label.replace(/s$/, "")}</h2></div><button type="button" class="icon-btn" aria-label="${tr("Close")}" onclick="$('#modal').remove()">×</button></div><div class="form-grid">${fields.map((f) => inputField(f, record?.[f])).join("")}</div><div class="modal-actions"><button type="button" class="btn secondary" onclick="$('#modal').remove()">${tr("Cancel")}</button><button class="btn">${record ? tr("Save changes") : tr("Create record")}</button></div></form></div>`,
   );
+  if (current === "invoices") wireInvoiceVatCalculation();
+  wireNamePickers();
   $("#recordForm").onsubmit = async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target));
@@ -1255,6 +2073,7 @@ function openForm(record) {
           "net_salary",
           "subtotal",
           "vat_rate",
+          "vat_amount",
           "total",
           "balance",
           "days",
@@ -1263,13 +2082,18 @@ function openForm(record) {
       )
         data[k] = Number(v || 0);
     if (fields.includes("active") && !("active" in data)) data.active = 0;
+    if (fields.includes("tags"))
+      data.tags = String(data.tags || "")
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
     if (
       fields.includes("email") &&
       fields.includes("phone") &&
       !String(data.email || "").trim() &&
       !String(data.phone || "").trim()
     ) {
-      toast("Enter a phone number or email so you have a way to reach them");
+      toast(tr("Enter a phone number or email so you have a way to reach them"));
       return;
     }
     try {
@@ -1278,13 +2102,71 @@ function openForm(record) {
         body: JSON.stringify(data),
       });
       $("#modal").remove();
-      toast(record ? "Record updated" : "Record created");
+      toast(record ? tr("Record updated") : tr("Record created"));
       render();
     } catch (e) {
       toast(e.message);
     }
   };
 }
+async function wireNamePickers() {
+  const selects = $$("#recordForm select[data-picker]");
+  for (const select of selects) {
+    const entity = select.dataset.picker,
+      current_ = select.dataset.current;
+    try {
+      const x = await api(`/${entity}?limit=100`);
+      const labelFor = (r) => r.company_name || r.full_name || r.name || r.id;
+      const options = x.data.map(
+        (r) =>
+          `<option value="${escapeHtml(r.id)}" ${r.id === current_ ? "selected" : ""}>${escapeHtml(labelFor(r))}</option>`,
+      );
+      select.innerHTML = `<option value="">— ${tr("Select")} —</option>${options.join("")}`;
+      if (current_) select.value = current_;
+    } catch {
+      select.innerHTML = `<option value="${escapeHtml(current_ || "")}">${current_ ? escapeHtml(current_) : "— " + tr("Select") + " —"}</option>`;
+    }
+  }
+}
+function wireInvoiceVatCalculation() {
+  const subtotalEl = $('#recordForm input[name="subtotal"]'),
+    vatRateEl = $('#recordForm input[name="vat_rate"]'),
+    vatAmountEl = $('#recordForm input[name="vat_amount"]'),
+    totalEl = $('#recordForm input[name="total"]');
+  if (!subtotalEl || !vatRateEl || !vatAmountEl || !totalEl) return;
+  vatAmountEl.readOnly = true;
+  totalEl.readOnly = true;
+  vatAmountEl.tabIndex = -1;
+  totalEl.tabIndex = -1;
+  const recalc = () => {
+    const subtotal = Number(subtotalEl.value || 0),
+      vatRate = Number(vatRateEl.value || 0),
+      vatAmount = Math.round(subtotal * (vatRate / 100) * 100) / 100;
+    vatAmountEl.value = vatAmount.toFixed(2);
+    totalEl.value = (subtotal + vatAmount).toFixed(2);
+  };
+  subtotalEl.addEventListener("input", recalc);
+  vatRateEl.addEventListener("input", recalc);
+  recalc();
+}
+const STATUS_OPTIONS = {
+  customers: ["active", "inactive"],
+  tasks: ["todo", "in_progress", "done"],
+  projects: ["planning", "active", "on_hold", "completed", "cancelled"],
+  calendar_events: ["scheduled", "completed", "cancelled"],
+  approval_requests: ["pending", "approved", "rejected"],
+  employees: ["active", "inactive", "on_leave", "terminated"],
+  attendance: ["present", "absent", "late"],
+  leave_requests: ["pending", "approved", "rejected"],
+  payroll: ["draft", "processed", "paid"],
+  invoices: ["draft", "sent", "paid", "overdue", "cancelled"],
+  job_listings: ["active", "closed", "draft"],
+  job_applications: ["pending", "reviewing", "interviewed", "hired", "rejected"],
+};
+const TYPE_OPTIONS = {
+  transactions: ["income", "expense"],
+  communications: ["email", "phone", "meeting", "note"],
+};
 function inputField(f, v = "") {
   const types = {
     email: "email",
@@ -1304,7 +2186,7 @@ function inputField(f, v = "") {
     end_at: "datetime-local",
   };
   const options = {
-    status: [
+    status: STATUS_OPTIONS[current] || [
       "active",
       "inactive",
       "scheduled",
@@ -1321,7 +2203,7 @@ function inputField(f, v = "") {
     ],
     stage: ["new", "qualified", "proposal", "negotiation", "won", "lost"],
     priority: ["low", "medium", "high", "urgent"],
-    type: ["income", "expense", "email", "phone", "meeting", "note"],
+    type: TYPE_OPTIONS[current] || ["income", "expense", "email", "phone", "meeting", "note"],
     event_type: ["meeting", "deadline", "reminder", "shift", "inspection"],
     leave_type: ["vacation", "sick", "personal", "unpaid"],
     source: ["website", "referral", "campaign", "organic", "partner"],
@@ -1329,9 +2211,20 @@ function inputField(f, v = "") {
     employment_type: ["full_time", "part_time", "temporary", "contract"],
   };
   if (f === "active")
-    return `<div class="field"><label><input name="active" type="checkbox" value="1" ${Number(v) !== 0 ? "checked" : ""}> Active rule</label></div>`;
+    return `<div class="field"><label><input name="active" type="checkbox" value="1" ${Number(v) !== 0 ? "checked" : ""}> ${tr("Active rule")}</label></div>`;
+  if (f === "tags") {
+    let list = [];
+    try {
+      list = JSON.parse(v || "[]");
+    } catch {
+      /* leave empty if stored value isn't valid JSON */
+    }
+    return `<div class="field"><label>${tr("Tags")}</label><input name="tags" type="text" value="${escapeHtml(list.join(", "))}" placeholder="${tr("vip, contract, referral")}"><small class="muted">${tr("Comma-separated")}</small></div>`;
+  }
+  if (f === "customer_id" || f === "employee_id")
+    return `<div class="field"><label>${title(f)}</label><select name="${f}" data-picker="${f === "customer_id" ? "customers" : "employees"}" data-current="${escapeHtml(v || "")}"><option value="${escapeHtml(v || "")}">${v ? tr("Loading…") : "— " + tr("Select") + " —"}</option></select></div>`;
   if (options[f])
-    return `<div class="field"><label>${title(f)}</label><select name="${f}">${options[f].map((o) => `<option ${v === o ? "selected" : ""}>${o}</option>`).join("")}</select></div>`;
+    return `<div class="field"><label>${title(f)}</label><select name="${f}">${options[f].map((o) => `<option value="${o}" ${v === o ? "selected" : ""}>${title(o)}</option>`).join("")}</select></div>`;
   if (
     [
       "notes",
@@ -1350,13 +2243,13 @@ function inputField(f, v = "") {
   let value = v ?? "";
   if (types[f] === "datetime-local" && value)
     value = String(value).slice(0, 16);
-  return `<div class="field"><label>${title(f)}</label><input name="${f}" type="${types[f] || (["amount", "value", "score", "probability", "progress", "budget", "spent", "salary", "base_salary", "bonuses", "deductions", "tax", "net_salary", "subtotal", "vat_rate", "total", "balance", "days"].includes(f) ? "number" : "text")}" value="${escapeHtml(value)}" ${["company_name", "full_name", "title", "name", "number", "start_at"].includes(f) ? "required" : ""}></div>`;
+  return `<div class="field"><label>${title(f)}</label><input name="${f}" type="${types[f] || (["amount", "value", "score", "probability", "progress", "budget", "spent", "salary", "base_salary", "bonuses", "deductions", "tax", "net_salary", "subtotal", "vat_rate", "vat_amount", "total", "balance", "days"].includes(f) ? "number" : "text")}" value="${escapeHtml(value)}" ${["company_name", "full_name", "title", "name", "number", "start_at"].includes(f) ? "required" : ""}></div>`;
 }
 function confirmDialog(message) {
   return new Promise((resolve) => {
     document.body.insertAdjacentHTML(
       "beforeend",
-      `<div class="modal-backdrop" id="confirmModal"><div class="modal" style="max-width:420px"><p style="margin:0 0 20px">${escapeHtml(message)}</p><div class="modal-actions"><button type="button" class="btn secondary" id="confirmCancel">Cancel</button><button type="button" class="btn danger" id="confirmOk">Delete</button></div></div></div>`,
+      `<div class="modal-backdrop" id="confirmModal"><div class="modal" style="max-width:420px"><p style="margin:0 0 20px">${escapeHtml(message)}</p><div class="modal-actions"><button type="button" class="btn secondary" id="confirmCancel">${tr("Cancel")}</button><button type="button" class="btn danger" id="confirmOk">${tr("Delete")}</button></div></div></div>`,
     );
     const cleanup = (result) => {
       $("#confirmModal")?.remove();
@@ -1367,11 +2260,100 @@ function confirmDialog(message) {
     $("#confirmOk").focus();
   });
 }
+function promptForm(title, fields, submitLabel = tr("Submit"), note = "") {
+  return new Promise((resolve) => {
+    const fieldsHtml = fields
+      .map(
+        (f) =>
+          `<div class="field"><label>${escapeHtml(f.label)}</label>${
+            f.type === "select"
+              ? `<select name="${escapeHtml(f.name)}">${(f.options || [])
+                  .map(
+                    (o) =>
+                      `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`,
+                  )
+                  .join("")}</select>`
+              : `<input name="${escapeHtml(f.name)}" type="${f.type || "text"}" value="${escapeHtml(f.value || "")}" ${f.required ? "required" : ""}>`
+          }</div>`,
+      )
+      .join("");
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      `<div class="modal-backdrop" id="promptModal"><form class="modal" id="promptFormEl" style="max-width:420px"><div class="card-head"><h2>${escapeHtml(title)}</h2><button type="button" class="icon-btn" aria-label="${tr("Close")}" id="promptClose">×</button></div>${note ? `<p class="muted" style="margin:0 0 16px;word-break:break-all">${note}</p>` : ""}<div id="promptError" style="color:var(--red);font-size:14px;min-height:20px"></div>${fieldsHtml}<div class="modal-actions"><button type="button" class="btn secondary" id="promptCancel">${tr("Cancel")}</button><button class="btn">${escapeHtml(submitLabel)}</button></div></form></div>`,
+    );
+    const cleanup = (result) => {
+      $("#promptModal")?.remove();
+      resolve(result);
+    };
+    $("#promptClose").onclick = () => cleanup(null);
+    $("#promptCancel").onclick = () => cleanup(null);
+    $("#promptFormEl").onsubmit = (e) => {
+      e.preventDefault();
+      cleanup(Object.fromEntries(new FormData(e.target)));
+    };
+    $("#promptFormEl input, #promptFormEl select")?.focus();
+  });
+}
+function promptPasswordForm(title, description, onSubmit) {
+  return new Promise((resolve) => {
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      `<div class="modal-backdrop" id="pwModal"><form class="modal" id="pwForm" style="max-width:420px"><div class="card-head"><h2>${escapeHtml(title)}</h2><button type="button" class="icon-btn" aria-label="${tr("Close")}" id="pwClose">×</button></div>${description ? `<p class="muted" style="margin:0 0 16px">${escapeHtml(description)}</p>` : ""}<div class="field"><label>${tr("New password")}</label><input name="password" type="password" autocomplete="new-password" required></div><div class="field"><label>${tr("Repeat password")}</label><input name="confirm" type="password" autocomplete="new-password" required></div><div id="pwError" style="color:var(--red);font-size:14px;min-height:20px"></div><div class="modal-actions"><button type="button" class="btn secondary" id="pwCancel">${tr("Cancel")}</button><button class="btn">${tr("Set password")}</button></div></form></div>`,
+    );
+    const cleanup = (result) => {
+      $("#pwModal")?.remove();
+      resolve(result);
+    };
+    $("#pwClose").onclick = () => cleanup(false);
+    $("#pwCancel").onclick = () => cleanup(false);
+    $("#pwForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target)),
+        errEl = $("#pwError");
+      errEl.textContent = "";
+      if (data.password !== data.confirm) {
+        errEl.textContent = tr("Passwords do not match");
+        return;
+      }
+      try {
+        await onSubmit(data.password);
+        cleanup(true);
+      } catch (error) {
+        errEl.textContent = error.message;
+      }
+    };
+  });
+}
+async function inviteUser() {
+  try {
+    const roles = await api("/auth/roles");
+    const data = await promptForm(tr("Invite a new user"), [
+      { name: "name", label: tr("Full name"), required: true },
+      { name: "email", label: tr("Email"), type: "email", required: true },
+      {
+        name: "role_id",
+        label: tr("Role"),
+        type: "select",
+        options: roles.map((r) => ({ value: r.id, label: r.name })),
+      },
+    ], tr("Send invite"));
+    if (!data) return;
+    await api("/auth/users/invite", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    toast(tr("Invite sent"));
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
+}
 async function removeRecord(id) {
-  if (!(await confirmDialog("Delete this record? This action is logged."))) return;
+  if (!(await confirmDialog(tr("Delete this record? This action is logged."))))
+    return;
   try {
     await api(`/${current}/${id}`, { method: "DELETE" });
-    toast("Record deleted");
+    toast(tr("Record deleted"));
     render();
   } catch (e) {
     toast(e.message);
@@ -1379,7 +2361,18 @@ async function removeRecord(id) {
 }
 function cell(k, v) {
   if (k === "status" || k === "stage" || k === "priority")
-    return `<span class="badge ${v}">${title(v || "—")}</span>`;
+    return `<span class="badge ${escapeHtml(v)}">${title(v || "—")}</span>`;
+  if (k === "tags") {
+    let list = [];
+    try {
+      list = JSON.parse(v || "[]");
+    } catch {
+      /* leave empty if stored value isn't valid JSON */
+    }
+    return list.length
+      ? list.map((t) => `<span class="badge">${escapeHtml(t)}</span>`).join(" ")
+      : "—";
+  }
   if (
     [
       "amount",
@@ -1412,12 +2405,30 @@ async function globalSearch(e) {
       ? x
           .map(
             (r) =>
-              `<div class="search-result" onclick="openModule('${r.type}')"><b>${escapeHtml(r.title)}</b><small class="muted" style="display:block">${title(r.type)}</small></div>`,
+              `<div class="search-result" onclick="goToSearchResult('${escapeJs(r.type)}','${escapeJs(r.id)}')"><b>${escapeHtml(r.title)}</b><small class="muted" style="display:block">${title(r.type)}</small></div>`,
           )
           .join("")
-      : '<div class="search-result muted">No results</div>';
+      : `<div class="search-result muted">${tr("No results")}</div>`;
     box.classList.add("show");
   } catch {}
+}
+async function goToSearchResult(type, id) {
+  $("#searchResults")?.classList.remove("show");
+  if (!modules[type]) return openModule(type);
+  current = type;
+  page = 1;
+  search = "";
+  $(".sidebar")?.classList.remove("open");
+  if ($("#app .app")) {
+    const old = $(".sidebar");
+    if (old) old.outerHTML = sidebar();
+    $$("[data-module]").forEach(
+      (b) => (b.onclick = () => openModule(b.dataset.module)),
+    );
+  }
+  if (type === "customers") return customer360(id);
+  await render();
+  if (type !== "documents") openEdit(id);
 }
 function openModule(k) {
   if (!modules[k]) return;
@@ -1452,14 +2463,12 @@ function toggleTheme() {
   if (btn) btn.innerHTML = themeIcon();
 }
 function toggleLanguage() {
-  const d = document.documentElement,
-    he = d.lang !== "he";
-  d.lang = he ? "he" : "en";
-  d.dir = he ? "rtl" : "ltr";
-  document.body.className = he ? "rtl" : "";
-  toast(he ? "הממשק הוחלף לעברית" : "Interface switched to English");
-  const btn = $("#langToggle");
-  if (btn) btn.innerHTML = langLabel();
+  lang = lang === "he" ? "en" : "he";
+  localStorage.lang = lang;
+  applyLangAttrs();
+  toast(lang === "he" ? "הממשק הוחלף לעברית" : "Interface switched to English");
+  if ($("#app .app")) appView();
+  else if ($("#loginForm")) loginView();
 }
 async function exportCsv() {
   try {
@@ -1471,6 +2480,7 @@ async function exportCsv() {
       const rr = await fetch(API + "/auth/refresh", {
         method: "POST",
         credentials: "include",
+        headers: { "X-CSRF-Token": getCsrfToken() },
       });
       if (rr.ok) {
         const x = await rr.json();
@@ -1489,15 +2499,16 @@ async function exportCsv() {
     a.download = current + ".csv";
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast("CSV exported");
+    toast(tr("CSV exported"));
   } catch (e) {
     toast(e.message);
   }
 }
 function title(s) {
-  return String(s || "")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  const raw = String(s || "");
+  if (lang === "he" && WORD_HE[raw.toLowerCase()])
+    return escapeHtml(WORD_HE[raw.toLowerCase()]);
+  return escapeHtml(raw.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()));
 }
 function escapeHtml(v) {
   return String(v ?? "").replace(
@@ -1509,10 +2520,11 @@ function escapeHtml(v) {
   );
 }
 function escapeJs(v) {
-  return String(v ?? "")
+  const jsSafe = String(v ?? "")
     .replace(/\\/g, "\\\\")
     .replace(/'/g, "\\'")
     .replace(/[\r\n]/g, " ");
+  return escapeHtml(jsSafe);
 }
 function toast(s) {
   const e = $("#toast");
@@ -1546,7 +2558,7 @@ const ONBOARDING_STEPS = [
 let tourStep = 0;
 function onboardingTourHtml() {
   const s = ONBOARDING_STEPS[tourStep];
-  return `<div class="modal-backdrop" id="tourModal"><div class="modal" style="max-width:440px;text-align:center;position:relative"><button type="button" class="icon-btn" style="position:absolute;top:14px;right:14px" onclick="endTour()" aria-label="Skip tour">×</button><div style="font-size:40px;margin-bottom:14px">${s.icon}</div><h2 style="margin:0 0 10px">${s.title}</h2><p class="muted" style="margin:0 0 22px">${s.text}</p><div style="display:flex;justify-content:center;gap:6px;margin-bottom:22px">${ONBOARDING_STEPS.map((_, i) => `<span style="width:7px;height:7px;border-radius:50%;background:${i === tourStep ? "var(--primary)" : "var(--line)"}"></span>`).join("")}</div><div class="modal-actions" style="justify-content:center">${tourStep > 0 ? '<button type="button" class="btn secondary" onclick="tourStep--;renderTour()">Back</button>' : ""}<button type="button" class="btn" onclick="${tourStep < ONBOARDING_STEPS.length - 1 ? "tourStep++;renderTour()" : "endTour()"}">${tourStep < ONBOARDING_STEPS.length - 1 ? "Next" : "Get started"}</button></div></div></div>`;
+  return `<div class="modal-backdrop" id="tourModal"><div class="modal" style="max-width:440px;text-align:center;position:relative"><button type="button" class="icon-btn" style="position:absolute;top:14px;right:14px" onclick="endTour()" aria-label="${tr("Skip tour")}">×</button><div style="font-size:40px;margin-bottom:14px">${s.icon}</div><h2 style="margin:0 0 10px">${tr(s.title)}</h2><p class="muted" style="margin:0 0 22px">${tr(s.text)}</p><div style="display:flex;justify-content:center;gap:6px;margin-bottom:22px">${ONBOARDING_STEPS.map((_, i) => `<span style="width:7px;height:7px;border-radius:50%;background:${i === tourStep ? "var(--primary)" : "var(--line)"}"></span>`).join("")}</div><div class="modal-actions" style="justify-content:center">${tourStep > 0 ? `<button type="button" class="btn secondary" onclick="tourStep--;renderTour()">${tr("Back")}</button>` : ""}<button type="button" class="btn" onclick="${tourStep < ONBOARDING_STEPS.length - 1 ? "tourStep++;renderTour()" : "endTour()"}">${tourStep < ONBOARDING_STEPS.length - 1 ? tr("Next") : tr("Get started")}</button></div></div></div>`;
 }
 function renderTour() {
   $("#tourModal")?.remove();
@@ -1561,17 +2573,159 @@ function maybeStartTour() {
   tourStep = 0;
   renderTour();
 }
+let paletteItems = [],
+  paletteIndex = 0,
+  paletteSearchTimer = null;
+function staticPaletteActions() {
+  const actions = [
+    {
+      label: `${tr("Go to")} ${title(modules.dashboard.label)}`,
+      hint: tr("Overview"),
+      icon: modules.dashboard.icon,
+      run: () => openModule("dashboard"),
+    },
+  ];
+  for (const [k, m] of Object.entries(modules)) {
+    if (k === "dashboard") continue;
+    actions.push({
+      label: `${tr("Go to")} ${title(m.label)}`,
+      hint: title(m.group),
+      icon: m.icon,
+      run: () => openModule(k),
+    });
+  }
+  for (const [k, m] of Object.entries(modules)) {
+    if (m.readOnly || !m.fields?.length) continue;
+    actions.push({
+      label: `${tr("New")} ${lang === "he" ? title(m.label) : m.label.replace(/s$/, "")}`,
+      hint: tr("Create"),
+      icon: "＋",
+      run: () => {
+        openModule(k);
+        openCreate();
+      },
+    });
+  }
+  actions.push({
+    label: tr("Invite user"),
+    hint: tr("Create"),
+    icon: "＋",
+    run: () => {
+      openModule("users");
+      inviteUser();
+    },
+  });
+  actions.push({
+    label:
+      document.documentElement.dataset.theme === "dark"
+        ? tr("Switch to light theme")
+        : tr("Switch to dark theme"),
+    hint: tr("Appearance"),
+    icon: "◐",
+    run: toggleTheme,
+  });
+  actions.push({
+    label: tr("Switch language"),
+    hint: tr("Preferences"),
+    icon: "◈",
+    run: toggleLanguage,
+  });
+  actions.push({ label: tr("Log out"), hint: tr("Session"), icon: "⏻", run: logout });
+  return actions;
+}
+function paletteItemHtml(it, i) {
+  return `<div class="palette-item ${i === paletteIndex ? "active" : ""}" data-i="${i}"><span class="palette-icon">${it.icon}</span><span class="palette-label">${escapeHtml(it.label)}</span><span class="palette-hint">${escapeHtml(it.hint)}</span></div>`;
+}
+function renderPaletteList() {
+  const list = $("#paletteList");
+  if (!list) return;
+  list.innerHTML = paletteItems.length
+    ? paletteItems.map(paletteItemHtml).join("")
+    : `<div class="palette-item muted" style="cursor:default">${tr("No matches")}</div>`;
+  $$(".palette-item[data-i]").forEach(
+    (el) => (el.onclick = () => runPaletteItem(Number(el.dataset.i))),
+  );
+  $(".palette-item.active")?.scrollIntoView({ block: "nearest" });
+}
+function runPaletteItem(i) {
+  const item = paletteItems[i];
+  if (!item) return;
+  closePalette();
+  item.run();
+}
+function closePalette() {
+  $("#commandPalette")?.remove();
+}
+function openCommandPalette() {
+  if ($("#commandPalette")) return;
+  paletteIndex = 0;
+  paletteItems = staticPaletteActions();
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    `<div class="modal-backdrop command-palette" id="commandPalette"><div class="modal palette-modal"><input class="input" id="paletteInput" placeholder="${tr("Type a command or search records…")}" autocomplete="off"><div class="palette-list" id="paletteList">${paletteItems.map(paletteItemHtml).join("")}</div></div></div>`,
+  );
+  const backdrop = $("#commandPalette"),
+    input = $("#paletteInput");
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) closePalette();
+  };
+  input.oninput = () => {
+    const q = input.value.trim(),
+      lower = q.toLowerCase(),
+      staticMatches = staticPaletteActions().filter((a) =>
+        a.label.toLowerCase().includes(lower),
+      );
+    paletteIndex = 0;
+    paletteItems = staticMatches;
+    renderPaletteList();
+    clearTimeout(paletteSearchTimer);
+    if (q.length < 2) return;
+    paletteSearchTimer = setTimeout(async () => {
+      try {
+        const results = await api("/search?q=" + encodeURIComponent(q));
+        paletteItems = [
+          ...staticMatches,
+          ...results.map((r) => ({
+            label: r.title,
+            hint: title(r.type),
+            icon: "→",
+            run: () => goToSearchResult(r.type, r.id),
+          })),
+        ];
+        renderPaletteList();
+      } catch {}
+    }, 200);
+  };
+  input.onkeydown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      paletteIndex = Math.min(paletteIndex + 1, paletteItems.length - 1);
+      renderPaletteList();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      paletteIndex = Math.max(paletteIndex - 1, 0);
+      renderPaletteList();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      runPaletteItem(paletteIndex);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      closePalette();
+    }
+  };
+  input.focus();
+}
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-    const box = $("#globalSearch");
-    if (!box) return;
+    if (!$("#app .app")) return;
     e.preventDefault();
-    box.focus();
-    box.select();
+    if ($("#commandPalette")) return closePalette();
+    openCommandPalette();
   }
 });
 async function init() {
   document.documentElement.dataset.theme = localStorage.theme || "light";
+  applyLangAttrs();
   const deepModule = location.pathname.match(/^\/crm\/([^/?#]+)/)?.[1];
   current =
     location.hash.slice(1) ||

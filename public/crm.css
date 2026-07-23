@@ -619,6 +619,54 @@ tbody tr:hover {
   grid-template-columns: 1fr 1fr;
   gap: 0 15px;
 }
+.command-palette {
+  align-items: flex-start;
+}
+.command-palette .palette-modal {
+  margin-top: 12vh;
+  padding: 0;
+  width: min(560px, 100%);
+}
+.palette-modal #paletteInput {
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 16px 16px 0 0;
+  padding: 18px 20px;
+  font-size: 15px;
+}
+.palette-modal #paletteInput:focus {
+  outline: none;
+  box-shadow: none;
+}
+.palette-list {
+  max-height: 55vh;
+  overflow: auto;
+  padding: 8px;
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.palette-item.active,
+.palette-item:hover {
+  background: var(--surface2);
+}
+.palette-icon {
+  width: 20px;
+  text-align: center;
+  color: var(--muted);
+}
+.palette-label {
+  flex: 1;
+}
+.palette-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
 .modal-actions {
   display: flex;
   justify-content: flex-end;

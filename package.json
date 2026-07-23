@@ -17,10 +17,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.78.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
-    "@opentelemetry/sdk-node": "^0.220.0",
     "@simplewebauthn/server": "^13.3.2",
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^12.2.0",
@@ -33,7 +29,8 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^9.0.3",
-    "pdfkit": "^0.19.1"
+    "pdfkit": "^0.19.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@axe-core/puppeteer": "^4.10.2",
@@ -46,7 +43,6 @@
     "globals": "^17.7.0",
     "prettier": "^3.9.6",
     "puppeteer-core": "^24.15.0",
-    "sharp": "^0.35.3",
     "typescript": "^7.0.2"
   },
   "overrides": {

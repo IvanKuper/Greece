@@ -13,6 +13,8 @@ const {
   userView,
   issueSession,
 } = require("./auth");
+const mailer = require("./mailer");
+const push = require("./push");
 const root = path.join(__dirname, ".."),
   uploadDir = path.join(root, "storage", "uploads"),
   backupDir = path.join(root, "storage", "backups");
@@ -34,6 +36,74 @@ function settings() {
       .all()
       .map((x) => [x.key, x.value]),
   );
+}
+function drawInvoicePdf(doc, inv, items, cfg) {
+  doc.fillColor("#b86f3c").fontSize(24).text(cfg.company_name || "Greece");
+  doc
+    .fillColor("#172033")
+    .fontSize(10)
+    .text(`${cfg.address || ""}\n${cfg.phone || ""} | ${cfg.email || ""}`);
+  doc
+    .moveDown(2)
+    .fontSize(22)
+    .text(`INVOICE ${inv.number}`, { align: "right" });
+  doc
+    .fontSize(10)
+    .text(
+      `Issue: ${inv.issue_date}\nDue: ${inv.due_date || "-"}\nStatus: ${String(inv.status).toUpperCase()}`,
+      { align: "right" },
+    );
+  doc
+    .moveDown()
+    .fontSize(12)
+    .text(
+      `Bill to: ${inv.company_name || "Customer"}\n${inv.contact_name || ""}\n${inv.address || ""}`,
+    );
+  doc.moveDown(2);
+  if (items.length) {
+    for (const item of items)
+      doc
+        .fontSize(10)
+        .text(
+          `${item.description}   ${item.quantity} x ${Number(item.unit_price).toFixed(2)}   ${Number(item.total).toFixed(2)} ILS`,
+        );
+  } else
+    doc.fontSize(10).text("Professional staffing and maintenance services");
+  doc
+    .moveDown(2)
+    .fontSize(11)
+    .text(`Subtotal: ${Number(inv.subtotal).toFixed(2)} ILS`, {
+      align: "right",
+    })
+    .text(`VAT (${inv.vat_rate}%): ${Number(inv.vat_amount).toFixed(2)} ILS`, {
+      align: "right",
+    })
+    .fillColor("#b86f3c")
+    .fontSize(15)
+    .text(`Total: ${Number(inv.total).toFixed(2)} ILS`, { align: "right" });
+  doc
+    .moveDown(4)
+    .fillColor("#6f7889")
+    .fontSize(9)
+    .text(
+      "Thank you for your business. Payment is due by the date shown above.",
+      { align: "center" },
+    );
+}
+function generateInvoicePdfBuffer(inv, items, cfg) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+        size: "A4",
+        margin: 48,
+        info: { Title: `Invoice ${inv.number}`, Author: cfg.company_name },
+      }),
+      chunks = [];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+    drawInvoicePdf(doc, inv, items, cfg);
+    doc.end();
+  });
 }
 function notify(userId, type, title, message, link) {
   const ts = now();
@@ -331,6 +401,46 @@ function businessOSRoutes(app) {
         .all(employee.id),
     });
   });
+  app.get(
+    "/api/v1/employees/:id/360",
+    authenticate,
+    permit("employees.read"),
+    (req, res) => {
+      const employee = db
+        .prepare(
+          "SELECT e.*,d.name department FROM employees e LEFT JOIN departments d ON d.id=e.department_id WHERE e.id=?",
+        )
+        .get(req.params.id);
+      if (!employee) return res.sendStatus(404);
+      const linkedUser = employee.email
+          ? db
+              .prepare("SELECT id FROM users WHERE lower(email)=lower(?)")
+              .get(employee.email)
+          : null,
+        all = (q, ...p) => db.prepare(q).all(...p);
+      res.json({
+        employee,
+        attendance: all(
+          "SELECT * FROM attendance WHERE employee_id=? ORDER BY date DESC LIMIT 31",
+          employee.id,
+        ),
+        leave: all(
+          "SELECT * FROM leave_requests WHERE employee_id=? ORDER BY created_at DESC",
+          employee.id,
+        ),
+        payroll: all(
+          "SELECT id,month,base_salary,bonuses,deductions,tax,net_salary,status,paid_at FROM payroll WHERE employee_id=? ORDER BY month DESC LIMIT 12",
+          employee.id,
+        ),
+        tasks: linkedUser
+          ? all(
+              "SELECT * FROM tasks WHERE assigned_to=? ORDER BY due_date",
+              linkedUser.id,
+            )
+          : [],
+      });
+    },
+  );
   app.post("/api/v1/portal/leave", authenticate, (req, res) => {
     const employee = db
       .prepare("SELECT id FROM employees WHERE lower(email)=lower(?)")
@@ -649,65 +759,53 @@ function businessOSRoutes(app) {
         `inline; filename="${inv.number}.pdf"`,
       );
       doc.pipe(res);
-      doc
-        .fillColor("#b86f3c")
-        .fontSize(24)
-        .text(cfg.company_name || "Greece");
-      doc
-        .fillColor("#172033")
-        .fontSize(10)
-        .text(`${cfg.address || ""}\n${cfg.phone || ""} | ${cfg.email || ""}`);
-      doc
-        .moveDown(2)
-        .fontSize(22)
-        .text(`INVOICE ${inv.number}`, { align: "right" });
-      doc
-        .fontSize(10)
-        .text(
-          `Issue: ${inv.issue_date}\nDue: ${inv.due_date || "-"}\nStatus: ${String(inv.status).toUpperCase()}`,
-          { align: "right" },
-        );
-      doc
-        .moveDown()
-        .fontSize(12)
-        .text(
-          `Bill to: ${inv.company_name || "Customer"}\n${inv.contact_name || ""}\n${inv.address || ""}`,
-        );
-      doc.moveDown(2);
-      if (items.length) {
-        for (const item of items)
-          doc
-            .fontSize(10)
-            .text(
-              `${item.description}   ${item.quantity} x ${Number(item.unit_price).toFixed(2)}   ${Number(item.total).toFixed(2)} ILS`,
-            );
-      } else
-        doc.fontSize(10).text("Professional staffing and maintenance services");
-      doc
-        .moveDown(2)
-        .fontSize(11)
-        .text(`Subtotal: ${Number(inv.subtotal).toFixed(2)} ILS`, {
-          align: "right",
-        })
-        .text(
-          `VAT (${inv.vat_rate}%): ${Number(inv.vat_amount).toFixed(2)} ILS`,
-          { align: "right" },
-        )
-        .fillColor("#b86f3c")
-        .fontSize(15)
-        .text(`Total: ${Number(inv.total).toFixed(2)} ILS`, { align: "right" });
-      doc
-        .moveDown(4)
-        .fillColor("#6f7889")
-        .fontSize(9)
-        .text(
-          "Thank you for your business. Payment is due by the date shown above.",
-          { align: "center" },
-        );
+      drawInvoicePdf(doc, inv, items, cfg);
       doc.end();
       audit(req, "invoice.pdf", "invoice", inv.id, null, {
         number: inv.number,
       });
+    },
+  );
+  app.post(
+    "/api/v1/invoices/:id/email",
+    authenticate,
+    permit("invoices.update"),
+    async (req, res) => {
+      const inv = db
+        .prepare(
+          "SELECT i.*,c.company_name,c.contact_name,c.email,c.address FROM invoices i LEFT JOIN customers c ON c.id=i.customer_id WHERE i.id=?",
+        )
+        .get(req.params.id);
+      if (!inv) return res.sendStatus(404);
+      if (!inv.email)
+        return res.status(400).json({
+          error: { message: "This customer has no email address on file" },
+        });
+      const items = db
+          .prepare("SELECT * FROM invoice_items WHERE invoice_id=?")
+          .all(inv.id),
+        cfg = settings(),
+        pdfBuffer = await generateInvoicePdfBuffer(inv, items, cfg);
+      const result = await mailer.sendInvoiceEmail({
+        email: inv.email,
+        customerName: inv.company_name || inv.contact_name || "Customer",
+        invoiceNumber: inv.number,
+        total: inv.total,
+        dueDate: inv.due_date,
+        companyName: cfg.company_name,
+        pdfBuffer,
+      });
+      if (!result.sent)
+        return res.status(502).json({
+          error: {
+            message: "Failed to send email: " + (result.reason || "unknown error"),
+          },
+        });
+      audit(req, "invoice.email", "invoice", inv.id, null, {
+        number: inv.number,
+        to: inv.email,
+      });
+      res.json({ ok: true });
     },
   );
   app.get(
@@ -1043,5 +1141,61 @@ function passkeyRoutes(app) {
     audit(req, "passkey.delete", "user", req.user.sub);
     res.sendStatus(204);
   });
+  app.get("/api/v1/push/vapid-public-key", authenticate, (req, res) =>
+    res.json({ publicKey: push.publicKey }),
+  );
+  app.post("/api/v1/push/subscribe", authenticate, (req, res) => {
+    if (!req.body?.endpoint || !req.body?.keys?.p256dh || !req.body?.keys?.auth)
+      return res.status(400).json({ error: { message: "Invalid subscription" } });
+    push.subscribe(req.user.sub, req.body);
+    res.sendStatus(204);
+  });
+  app.post("/api/v1/push/unsubscribe", authenticate, (req, res) => {
+    if (req.body?.endpoint) push.unsubscribe(req.body.endpoint);
+    res.sendStatus(204);
+  });
 }
-module.exports = { businessOSRoutes, createBackup };
+async function checkOverdueInvoices() {
+  try {
+    const today = now().slice(0, 10);
+    const overdue = db
+      .prepare(
+        "SELECT i.*,c.company_name,c.contact_name,c.email FROM invoices i LEFT JOIN customers c ON c.id=i.customer_id WHERE i.status='sent' AND i.due_date IS NOT NULL AND i.due_date<?",
+      )
+      .all(today);
+    if (!overdue.length) return;
+    const cfg = settings(),
+      admins = db
+        .prepare(
+          "SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE r.name IN ('administrator','super_admin')",
+        )
+        .all();
+    for (const inv of overdue) {
+      db.prepare(
+        "UPDATE invoices SET status='overdue',updated_at=? WHERE id=?",
+      ).run(now(), inv.id);
+      if (inv.email)
+        mailer
+          .sendOverdueReminder({
+            email: inv.email,
+            customerName: inv.company_name || inv.contact_name || "Customer",
+            invoiceNumber: inv.number,
+            total: inv.total,
+            dueDate: inv.due_date,
+            companyName: cfg.company_name,
+          })
+          .catch(() => {});
+      for (const admin of admins)
+        notify(
+          admin.id,
+          "finance",
+          "Invoice overdue",
+          `Invoice ${inv.number} (${inv.company_name || "customer"}) is now overdue.`,
+          "/crm#invoices",
+        );
+    }
+  } catch (error) {
+    console.error("Overdue invoice check failed:", error.message);
+  }
+}
+module.exports = { businessOSRoutes, createBackup, checkOverdueInvoices };
