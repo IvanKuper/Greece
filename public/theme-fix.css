@@ -149,10 +149,23 @@ html.light [role="dialog"] {
   right: 10px;
   transform: translateY(-160%);
   border-radius: 8px;
-  background: #c87941;
+  background: #a06134;
   color: #fff;
   padding: 10px 16px;
   font-weight: 700;
+}
+/* #c87941 with white text is 3.35:1, below the 4.5:1 WCAG AA minimum for
+   normal-size text. Darkening to #a06134 (4.94:1) keeps the same brand hue
+   while passing contrast on every button/link that uses it. */
+.bg-copper {
+  --tw-bg-opacity: 1 !important;
+  background-color: rgb(160 97 52 / var(--tw-bg-opacity, 1)) !important;
+}
+/* Same reasoning: #c87941 at 60% alpha over the dark nav background is only
+   2.74:1. Raising to 90% alpha keeps it visually secondary while reaching
+   4.80:1. */
+.text-copper\/60 {
+  color: #c87941e6 !important;
 }
 .skip-link:focus {
   transform: none;
