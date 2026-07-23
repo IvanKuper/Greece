@@ -2419,13 +2419,6 @@ async function goToSearchResult(type, id) {
   page = 1;
   search = "";
   $(".sidebar")?.classList.remove("open");
-  if ($("#app .app")) {
-    const old = $(".sidebar");
-    if (old) old.outerHTML = sidebar();
-    $$("[data-module]").forEach(
-      (b) => (b.onclick = () => openModule(b.dataset.module)),
-    );
-  }
   if (type === "customers") return customer360(id);
   await render();
   if (type !== "documents") openEdit(id);
@@ -2436,13 +2429,6 @@ function openModule(k) {
   page = 1;
   search = "";
   $(".sidebar")?.classList.remove("open");
-  if ($("#app .app")) {
-    const old = $(".sidebar");
-    old.outerHTML = sidebar();
-    $$("[data-module]").forEach(
-      (b) => (b.onclick = () => openModule(b.dataset.module)),
-    );
-  }
   render();
 }
 async function logout() {
