@@ -1291,7 +1291,7 @@ async function reportsView() {
   const el = $("#content");
   try {
     const f = await api("/reports/finance");
-    el.innerHTML = `${pageHead(title("Reports & Exports"), tr("Auditable finance, sales, HR and operations reporting."), `<button class="btn" onclick="downloadBusinessReport()">${tr("Download Excel workbook")}</button>`)}<div class="kpis"><div class="card kpi"><span class="kpi-label">${tr("Total income")}</span><div class="kpi-value">${money(f.totals.income)}</div></div><div class="card kpi"><span class="kpi-label">${tr("Total expenses")}</span><div class="kpi-value">${money(f.totals.expenses)}</div></div><div class="card kpi"><span class="kpi-label">${tr("Net profit")}</span><div class="kpi-value">${money(f.totals.income - f.totals.expenses)}</div></div></div><div class="card" style="margin-top:16px"><h3>${tr("Available report sheets")}</h3><p class="muted">${title("Customers")} · ${tr("Sales Pipeline")} · ${title("Finance")} · ${title("Invoices")} · ${title("Employees")} · ${title("Projects")}</p></div>`;
+    el.innerHTML = `${pageHead(title("Reports & Exports"), tr("Auditable finance, sales, HR and operations reporting."), `<button class="btn" onclick="downloadBusinessReport()">${tr("Download Excel workbook")}</button>`)}<div class="kpis"><div class="card kpi"><span class="kpi-label">${tr("Total income")}</span><div class="kpi-value">${money(f.totals.income)}</div></div><div class="card kpi"><span class="kpi-label">${tr("Total expenses")}</span><div class="kpi-value">${money(f.totals.expenses)}</div></div><div class="card kpi"><span class="kpi-label">${tr("Net profit")}</span><div class="kpi-value">${money(f.totals.income - f.totals.expenses)}</div></div></div><div class="card" style="margin-top:16px"><h3>${tr("Available report sheets")}</h3><p class="muted">${title("Customers")} · ${tr("Sales Pipeline")} · ${title("Finance")} · ${title("Invoices")} · ${title("Quotes")} · ${title("Employees")} · ${title("Projects")}</p></div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -1567,7 +1567,7 @@ async function customer360(customerId) {
             `<div class="activity-row"><span>◦</span><div><b>${escapeHtml(a.title || a.type)}</b><small class="muted" style="display:block">${escapeHtml(a.description || "")} · ${date(a.occurred_at)}</small></div></div>`,
         )
         .join("") || `<p class="muted">${tr("Activity will appear here.")}</p>`
-    }</section></div><div class="grid3" style="margin-top:16px"><section class="card"><h3>${title("Deals")}</h3>${miniRows(x.deals, "title", "value")}</section><section class="card"><h3>${title("Projects")}</h3>${miniRows(x.projects, "name", "status")}</section><section class="card"><h3>${title("Invoices")}</h3>${miniRows(x.invoices, "number", "total")}</section>${c.notes ? `<section class="card"><h3>${title("Notes")}</h3><p class="muted">${escapeHtml(c.notes)}</p></section>` : ""}</div>`;
+    }</section></div><div class="grid3" style="margin-top:16px"><section class="card"><h3>${title("Deals")}</h3>${miniRows(x.deals, "title", "value")}</section><section class="card"><h3>${title("Projects")}</h3>${miniRows(x.projects, "name", "status")}</section><section class="card"><h3>${title("Invoices")}</h3>${miniRows(x.invoices, "number", "total")}</section><section class="card"><h3>${title("Quotes")}</h3>${miniRows(x.quotes, "title", "total")}</section>${c.notes ? `<section class="card"><h3>${title("Notes")}</h3><p class="muted">${escapeHtml(c.notes)}</p></section>` : ""}</div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }

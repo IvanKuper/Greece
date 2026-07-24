@@ -304,6 +304,10 @@ function businessOSRoutes(app) {
           "SELECT * FROM invoices WHERE customer_id=? ORDER BY issue_date DESC",
           customer.id,
         ),
+        quotes: all(
+          "SELECT * FROM quotes WHERE customer_id=? ORDER BY created_at DESC",
+          customer.id,
+        ),
         tasks: all(
           "SELECT * FROM tasks WHERE customer_id=? ORDER BY due_date",
           customer.id,
@@ -1153,6 +1157,28 @@ function businessOSRoutes(app) {
     },
   );
   app.get(
+    "/api/v1/export/quotes.csv",
+    authenticate,
+    permit("invoices.read"),
+    (req, res) => {
+      const rows = db
+          .prepare("SELECT * FROM quotes ORDER BY created_at DESC LIMIT 10000")
+          .all(),
+        keys = Object.keys(rows[0] || {}),
+        esc = (v) => '"' + String(v ?? "").replaceAll('"', '""') + '"';
+      res
+        .type("text/csv")
+        .attachment("quotes.csv")
+        .send(
+          "﻿" +
+            [
+              keys.join(","),
+              ...rows.map((r) => keys.map((k) => esc(r[k])).join(",")),
+            ].join("\n"),
+        );
+    },
+  );
+  app.get(
     "/api/v1/quotes/:id/pdf",
     authenticate,
     permit("invoices.read"),
@@ -1552,6 +1578,14 @@ function businessOSRoutes(app) {
         db
           .prepare(
             "SELECT number,issue_date,due_date,subtotal,vat_amount,total,status FROM invoices",
+          )
+          .all(),
+      );
+      add(
+        "Quotes",
+        db
+          .prepare(
+            "SELECT number,title,created_at,valid_until,subtotal,vat_amount,total,status FROM quotes",
           )
           .all(),
       );
