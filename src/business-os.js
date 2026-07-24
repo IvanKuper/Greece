@@ -796,6 +796,33 @@ function businessOSRoutes(app) {
       });
     },
   );
+  app.get(
+    "/api/v1/analytics/overview",
+    authenticate,
+    permit("dashboard.read"),
+    (req, res) => {
+      const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        todayStart = now().slice(0, 10);
+      res.json({
+        totalViews30d: db
+          .prepare("SELECT count(*) n FROM page_views WHERE created_at>=?")
+          .get(since30).n,
+        todayViews: db
+          .prepare("SELECT count(*) n FROM page_views WHERE created_at>=?")
+          .get(todayStart).n,
+        topPages: db
+          .prepare(
+            "SELECT page,count(*) n FROM page_views WHERE created_at>=? GROUP BY page ORDER BY n DESC LIMIT 10",
+          )
+          .all(since30),
+        dailyViews: db
+          .prepare(
+            "SELECT substr(created_at,1,10) day,count(*) n FROM page_views WHERE created_at>=? GROUP BY day ORDER BY day",
+          )
+          .all(since30),
+      });
+    },
+  );
   app.post(
     "/api/v1/backups",
     authenticate,
@@ -1712,6 +1739,11 @@ function pruneOldBackups() {
     db.prepare("DELETE FROM backup_runs WHERE id=?").run(b.id);
   }
 }
+function pruneOldPageViews() {
+  db.prepare("DELETE FROM page_views WHERE created_at<?").run(
+    new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+  );
+}
 async function runScheduledBackupIfDue() {
   try {
     const last = db
@@ -1745,4 +1777,5 @@ module.exports = {
   createBackup,
   checkOverdueInvoices,
   runScheduledBackupIfDue,
+  pruneOldPageViews,
 };

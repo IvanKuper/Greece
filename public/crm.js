@@ -311,6 +311,12 @@ const modules = {
     group: "System",
     special: "security",
   },
+  analytics: {
+    label: "Website Analytics",
+    icon: "⬆",
+    group: "System",
+    special: "analytics",
+  },
   monitoring: {
     label: "Monitoring",
     icon: "◉",
@@ -371,6 +377,12 @@ const WORD_HE = {
   "job listings": "משרות פנויות",
   recruiting: "גיוס",
   applications: "מועמדויות",
+  home: "דף הבית",
+  about: "אודות",
+  contact: "צור קשר",
+  process: "תהליך העבודה",
+  certifications: "הסמכות",
+  "website analytics": "אנליטיקס לאתר",
   "secure files": "קבצים מאובטחים",
   documents: "מסמכים",
   system: "מערכת",
@@ -882,6 +894,15 @@ const PHRASE_HE = {
   "Download payslips (PDF)": "הורד תלושי שכר (PDF)",
   "Download payslips": "הורד תלושי שכר",
   Month: "חודש",
+  "Anonymous page-view counts from the public site. No cookies, no tracking of individuals.":
+    "ספירת צפיות אנונימית מהאתר הציבורי. ללא עוגיות, ללא מעקב אחר משתמשים.",
+  "Views (30 days)": "צפיות (30 יום)",
+  "Views today": "צפיות היום",
+  "Pages tracked": "עמודים במעקב",
+  "Most viewed page": "העמוד הנצפה ביותר",
+  "Daily views (last 30 days)": "צפיות יומיות (30 יום אחרונים)",
+  "Top pages": "העמודים המובילים",
+  "No page views recorded yet.": "עדיין לא נרשמו צפיות.",
 };
 function tr(s) {
   return (lang === "he" && PHRASE_HE[s]) || s;
@@ -1119,6 +1140,7 @@ async function specialView(kind) {
     reports: reportsView,
     integrations: integrationsView,
     security: securityView,
+    analytics: analyticsView,
     monitoring: monitoringView,
     backups: backupsView,
     settings: settingsView,
@@ -1364,6 +1386,50 @@ async function disable2FA() {
     render();
   } catch (e) {
     toast(e.message);
+  }
+}
+async function analyticsView() {
+  const el = $("#content");
+  el.innerHTML = skeletonDashboard();
+  try {
+    const x = await api("/analytics/overview");
+    const byDay = Object.fromEntries(x.dailyViews.map((d) => [d.day, d.n]));
+    const days = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (29 - i));
+      return d.toISOString().slice(0, 10);
+    });
+    const max = Math.max(...days.map((d) => byDay[d] || 0), 1);
+    const chart = `<div class="chart">${days
+      .map(
+        (d) =>
+          `<div class="bar-group"><i class="bar" style="height:${((byDay[d] || 0) / max) * 100}%" title="${d}: ${byDay[d] || 0}"></i><span class="bar-label">${d.slice(5)}</span></div>`,
+      )
+      .join(
+        "",
+      )}</div>`;
+    el.innerHTML = `${pageHead(title("Website Analytics"), tr("Anonymous page-view counts from the public site. No cookies, no tracking of individuals."))}<div class="kpis">${[
+      [tr("Views (30 days)"), x.totalViews30d],
+      [tr("Views today"), x.todayViews],
+      [tr("Pages tracked"), x.topPages.length],
+      [tr("Most viewed page"), x.topPages[0] ? title(x.topPages[0].page) : "—"],
+    ]
+      .map(
+        (v) =>
+          `<div class="card kpi"><span class="kpi-label">${v[0]}</span><div class="kpi-value">${v[1]}</div></div>`,
+      )
+      .join(
+        "",
+      )}</div><div class="card" style="margin-top:16px"><h3>${tr("Daily views (last 30 days)")}</h3>${chart}</div><div class="card" style="margin-top:16px"><h3>${tr("Top pages")}</h3>${
+      x.topPages
+        .map(
+          (p) =>
+            `<div class="activity-row"><div style="flex:1"><b>${title(p.page)}</b></div><span>${p.n}</span></div>`,
+        )
+        .join("") || `<p class="muted">${tr("No page views recorded yet.")}</p>`
+    }</div>`;
+  } catch (e) {
+    el.innerHTML = errorView(e);
   }
 }
 async function monitoringView() {

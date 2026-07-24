@@ -221,9 +221,14 @@ app.get(`/api/apps/${BID}/entities/User/me`, (req, res) =>
 app.post(`/api/apps/${BID}/analytics/track/batch`, (req, res) =>
   res.sendStatus(204),
 );
-app.post(`/api/app-logs/${BID}/log-user-in-app/:page`, (req, res) =>
-  res.sendStatus(204),
-);
+app.post(`/api/app-logs/${BID}/log-user-in-app/:page`, (req, res) => {
+  const page = String(req.params.page || "home").slice(0, 60);
+  db.prepare("INSERT INTO page_views(page,created_at) VALUES(?,?)").run(
+    page,
+    now(),
+  );
+  res.sendStatus(204);
+});
 const compat = {
   JobListing: "job_listings",
   JobApplication: "job_applications",
