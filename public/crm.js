@@ -879,6 +879,9 @@ const PHRASE_HE = {
   "Invoice created from quote": "החשבונית נוצרה מהצעת המחיר",
   "Copy link": "העתק קישור",
   "Link copied to clipboard": "הקישור הועתק ללוח",
+  "Download payslips (PDF)": "הורד תלושי שכר (PDF)",
+  "Download payslips": "הורד תלושי שכר",
+  Month: "חודש",
 };
 function tr(s) {
   return (lang === "he" && PHRASE_HE[s]) || s;
@@ -1706,6 +1709,18 @@ function downloadBusinessReport() {
     "greece-business-report.xlsx",
   );
 }
+async function downloadPayslipBatch() {
+  const data = await promptForm(
+    tr("Download payslips"),
+    [{ name: "month", label: tr("Month"), type: "month", required: true }],
+    tr("Download"),
+  );
+  if (!data || !data.month) return;
+  return downloadProtected(
+    `/payroll/batch/${data.month}/pdf`,
+    `payslips-${data.month}.pdf`,
+  );
+}
 function updateNotificationBadge(rows) {
   const count = rows.filter((n) => !n.read_at).length,
     b = $("#notificationCount");
@@ -1983,7 +1998,7 @@ async function tableView() {
     const moduleLabel = title(m.label),
       moduleLabelLower = moduleLabel.toLowerCase(),
       addLabel = lang === "he" ? moduleLabel : m.label.replace(/s$/, "");
-    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">${title(m.group)}</span><h1>${moduleLabel}</h1><p class="muted">${x.pagination.total} ${tr("records · centrally managed and audited")}</p></div>${current === "users" ? `<button class="btn" onclick="inviteUser()">＋ ${tr("Invite user")}</button>` : m.readOnly ? "" : `<button class="btn" onclick="openCreate()">＋ ${tr("Add")} ${addLabel}</button>`}</div><div class="toolbar"><input class="input" value="${escapeHtml(search)}" placeholder="${tr("Search")} ${moduleLabelLower}…" onkeydown="if(event.key==='Enter'){search=this.value;page=1;render()}"><button class="btn secondary" onclick="search=$('.toolbar .input').value;page=1;render()">${tr("Filter")}</button><button class="btn secondary" onclick="exportCsv()">⇩ ${tr("Export CSV")}</button>${current === "invoices" ? `<button class="btn secondary" onclick="downloadBusinessReport()">${tr("Export Excel")}</button>` : ""}</div><div id="bulkBar" class="toolbar" style="display:none"></div><section class="card table-card"><div class="table-scroll"><table><thead><tr>${selectCol}${fields.map((f) => `<th>${title(f)}</th>`).join("")}<th>${tr("Actions")}</th></tr></thead><tbody>${x.data.map((r) => `<tr>${m.readOnly ? "" : `<td><input type="checkbox" class="row-select" aria-label="${tr("Select row")}" data-id="${escapeHtml(r.id)}" onclick="toggleRowSelect('${escapeJs(r.id)}',this.checked)"></td>`}${fields.map((f) => `<td>${cell(f, r[f])}</td>`).join("")}<td>${rowActions(r, m)}</td></tr>`).join("")}</tbody></table></div>${x.data.length ? "" : `<div class="empty">${tr("No")} ${moduleLabelLower} ${tr("found.")}</div>`}<div class="pager"><span class="muted">${tr("Page")} ${x.pagination.page} ${tr("of")} ${Math.max(1, x.pagination.pages)}</span><div class="pager-buttons"><button class="btn secondary" ${page <= 1 ? "disabled" : ""} onclick="page--;render()">${tr("Previous")}</button><button class="btn secondary" ${page >= x.pagination.pages ? "disabled" : ""} onclick="page++;render()">${tr("Next")}</button></div></div></section>`;
+    el.innerHTML = `<div class="page-head"><div><span class="eyebrow">${title(m.group)}</span><h1>${moduleLabel}</h1><p class="muted">${x.pagination.total} ${tr("records · centrally managed and audited")}</p></div>${current === "users" ? `<button class="btn" onclick="inviteUser()">＋ ${tr("Invite user")}</button>` : m.readOnly ? "" : `<button class="btn" onclick="openCreate()">＋ ${tr("Add")} ${addLabel}</button>`}</div><div class="toolbar"><input class="input" value="${escapeHtml(search)}" placeholder="${tr("Search")} ${moduleLabelLower}…" onkeydown="if(event.key==='Enter'){search=this.value;page=1;render()}"><button class="btn secondary" onclick="search=$('.toolbar .input').value;page=1;render()">${tr("Filter")}</button><button class="btn secondary" onclick="exportCsv()">⇩ ${tr("Export CSV")}</button>${current === "invoices" ? `<button class="btn secondary" onclick="downloadBusinessReport()">${tr("Export Excel")}</button>` : ""}${current === "payroll" ? `<button class="btn secondary" onclick="downloadPayslipBatch()">${tr("Download payslips (PDF)")}</button>` : ""}</div><div id="bulkBar" class="toolbar" style="display:none"></div><section class="card table-card"><div class="table-scroll"><table><thead><tr>${selectCol}${fields.map((f) => `<th>${title(f)}</th>`).join("")}<th>${tr("Actions")}</th></tr></thead><tbody>${x.data.map((r) => `<tr>${m.readOnly ? "" : `<td><input type="checkbox" class="row-select" aria-label="${tr("Select row")}" data-id="${escapeHtml(r.id)}" onclick="toggleRowSelect('${escapeJs(r.id)}',this.checked)"></td>`}${fields.map((f) => `<td>${cell(f, r[f])}</td>`).join("")}<td>${rowActions(r, m)}</td></tr>`).join("")}</tbody></table></div>${x.data.length ? "" : `<div class="empty">${tr("No")} ${moduleLabelLower} ${tr("found.")}</div>`}<div class="pager"><span class="muted">${tr("Page")} ${x.pagination.page} ${tr("of")} ${Math.max(1, x.pagination.pages)}</span><div class="pager-buttons"><button class="btn secondary" ${page <= 1 ? "disabled" : ""} onclick="page--;render()">${tr("Previous")}</button><button class="btn secondary" ${page >= x.pagination.pages ? "disabled" : ""} onclick="page++;render()">${tr("Next")}</button></div></div></section>`;
   } catch (e) {
     el.innerHTML = `<div class="empty">${e.message}</div>`;
   }
@@ -2079,7 +2094,9 @@ function rowActions(r, m) {
         ? `<button class="btn secondary" onclick="downloadProtected('/invoices/${r.id}/pdf','${escapeJs(r.number)}.pdf')">${tr("PDF")}</button> <button class="btn secondary" onclick="emailInvoice('${r.id}')">${tr("Email")}</button> `
         : current === "quotes"
         ? `<button class="btn secondary" onclick="downloadProtected('/quotes/${r.id}/pdf','${escapeJs(r.number)}.pdf')">${tr("PDF")}</button> <button class="btn secondary" onclick="emailQuote('${r.id}')">${tr("Email")}</button> <button class="btn secondary" onclick="copyQuoteLink('${escapeJs(r.public_token)}')">${tr("Copy link")}</button> ${r.status === "accepted" ? `<button class="btn" onclick="convertQuoteToInvoice('${r.id}')">${tr("Convert to invoice")}</button> ` : ""}`
-        : current === "documents"
+        : current === "payroll"
+          ? `<button class="btn secondary" onclick="downloadProtected('/payroll/${r.id}/pdf','payslip-${escapeJs(r.month)}.pdf')">${tr("PDF")}</button> `
+          : current === "documents"
           ? `<button class="btn secondary" onclick="downloadProtected('/files/${r.id}/download','${escapeJs(r.name)}')">${tr("Download")}</button> `
           : current === "notifications" && !r.read_at
             ? `<button class="btn secondary" onclick="markNotificationRead('${r.id}')">${tr("Mark read")}</button> `

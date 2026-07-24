@@ -174,6 +174,42 @@ function generateQuotePdfBuffer(q, items, cfg) {
     doc.end();
   });
 }
+function drawPayslipPdf(doc, p, cfg, addPage) {
+  if (addPage) doc.addPage();
+  doc.fillColor("#b86f3c").fontSize(24).text(cfg.company_name || "Greece");
+  doc
+    .fillColor("#172033")
+    .fontSize(10)
+    .text(`${cfg.address || ""}\n${cfg.phone || ""} | ${cfg.email || ""}`);
+  doc
+    .moveDown(2)
+    .fontSize(22)
+    .text(`PAYSLIP ${p.month}`, { align: "right" });
+  doc
+    .fontSize(10)
+    .text(`Status: ${String(p.status).toUpperCase()}`, { align: "right" });
+  doc
+    .moveDown()
+    .fontSize(12)
+    .text(`${p.full_name || "Employee"}\n${p.position || ""}\n${p.employee_number ? "No. " + p.employee_number : ""}`);
+  doc.moveDown(2);
+  doc
+    .fontSize(11)
+    .text(`Base salary: ${Number(p.base_salary).toFixed(2)} ILS`, { align: "right" })
+    .text(`Bonuses: ${Number(p.bonuses).toFixed(2)} ILS`, { align: "right" })
+    .text(`Deductions: -${Number(p.deductions).toFixed(2)} ILS`, { align: "right" })
+    .text(`Tax: -${Number(p.tax).toFixed(2)} ILS`, { align: "right" })
+    .fillColor("#b86f3c")
+    .fontSize(15)
+    .text(`Net salary: ${Number(p.net_salary).toFixed(2)} ILS`, { align: "right" });
+  doc
+    .moveDown(4)
+    .fillColor("#6f7889")
+    .fontSize(9)
+    .text("This payslip is computer-generated and does not require a signature.", {
+      align: "center",
+    });
+}
 function notify(userId, type, title, message, link) {
   const ts = now();
   db.prepare(
@@ -1211,6 +1247,64 @@ function businessOSRoutes(app) {
     );
     res.json({ ok: true });
   });
+  app.get(
+    "/api/v1/payroll/:id/pdf",
+    authenticate,
+    permit("payroll.read"),
+    (req, res) => {
+      const p = db
+        .prepare(
+          "SELECT p.*,e.full_name,e.position,e.employee_number FROM payroll p LEFT JOIN employees e ON e.id=p.employee_id WHERE p.id=?",
+        )
+        .get(req.params.id);
+      if (!p) return res.sendStatus(404);
+      const cfg = settings(),
+        doc = new PDFDocument({
+          size: "A4",
+          margin: 48,
+          info: { Title: `Payslip ${p.month} - ${p.full_name}`, Author: cfg.company_name },
+        });
+      res.type("application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="payslip-${p.month}-${(p.full_name || "employee").replace(/\s+/g, "-")}.pdf"`,
+      );
+      doc.pipe(res);
+      drawPayslipPdf(doc, p, cfg, false);
+      doc.end();
+      audit(req, "payroll.pdf", "payroll", p.id, null, { month: p.month });
+    },
+  );
+  app.get(
+    "/api/v1/payroll/batch/:month/pdf",
+    authenticate,
+    permit("payroll.read"),
+    (req, res) => {
+      const rows = db
+        .prepare(
+          "SELECT p.*,e.full_name,e.position,e.employee_number FROM payroll p LEFT JOIN employees e ON e.id=p.employee_id WHERE p.month=? ORDER BY e.full_name",
+        )
+        .all(req.params.month);
+      if (!rows.length) return res.sendStatus(404);
+      const cfg = settings(),
+        doc = new PDFDocument({
+          size: "A4",
+          margin: 48,
+          info: { Title: `Payslips ${req.params.month}`, Author: cfg.company_name },
+        });
+      res.type("application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="payslips-${req.params.month}.pdf"`,
+      );
+      doc.pipe(res);
+      rows.forEach((p, i) => drawPayslipPdf(doc, p, cfg, i > 0));
+      doc.end();
+      audit(req, "payroll.batch_pdf", "payroll", req.params.month, null, {
+        count: rows.length,
+      });
+    },
+  );
   app.get(
     "/api/v1/reports/business.xlsx",
     authenticate,
