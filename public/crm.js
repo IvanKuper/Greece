@@ -905,6 +905,9 @@ const PHRASE_HE = {
   "No page views recorded yet.": "עדיין לא נרשמו צפיות.",
   "Portal link": "קישור לאזור אישי",
   "Portal link copied to clipboard": "הקישור לאזור האישי הועתק ללוח",
+  "Summarize account": "סכם חשבון לקוח",
+  "Generating summary…": "יוצר סיכום…",
+  "AI Summary": "סיכום AI",
 };
 function tr(s) {
   return (lang === "he" && PHRASE_HE[s]) || s;
@@ -1527,7 +1530,7 @@ async function customer360(customerId) {
     } catch {
       /* leave empty if stored value isn't valid JSON */
     }
-    el.innerHTML = `${pageHead(c.company_name, `${c.contact_name || ""} · ${c.email || ""} · ${c.phone || ""}`, `<button class="btn secondary" onclick="openModule('customers')">← ${title("Customers")}</button><button class="btn" onclick="addCustomerContact('${c.id}')">＋ ${tr("Contact")}</button><button class="btn secondary" onclick="sendWhatsApp('${c.id}','${escapeJs(c.phone || "")}')">${tr("WhatsApp")}</button><button class="btn secondary" onclick="copyPortalLink('${c.id}')">${tr("Portal link")}</button>`)}${tagList.length ? `<div style="margin:-10px 0 20px">${tagList.map((t) => `<span class="badge">${escapeHtml(t)}</span>`).join(" ")}</div>` : ""}<div class="kpis">${[
+    el.innerHTML = `${pageHead(c.company_name, `${c.contact_name || ""} · ${c.email || ""} · ${c.phone || ""}`, `<button class="btn secondary" onclick="openModule('customers')">← ${title("Customers")}</button><button class="btn" onclick="addCustomerContact('${c.id}')">＋ ${tr("Contact")}</button><button class="btn secondary" onclick="sendWhatsApp('${c.id}','${escapeJs(c.phone || "")}')">${tr("WhatsApp")}</button><button class="btn secondary" onclick="copyPortalLink('${c.id}')">${tr("Portal link")}</button><button class="btn secondary" onclick="summarizeCustomerAccount('${c.id}')">✨ ${tr("Summarize account")}</button>`)}${tagList.length ? `<div style="margin:-10px 0 20px">${tagList.map((t) => `<span class="badge">${escapeHtml(t)}</span>`).join(" ")}</div>` : ""}<div id="aiSummaryArea"></div><div class="kpis">${[
       [
         tr("Pipeline"),
         money(x.deals.reduce((n, d) => n + Number(d.value || 0), 0)),
@@ -1786,6 +1789,20 @@ async function copyPortalLink(customerId) {
     }
   } catch (e) {
     toast(e.message);
+  }
+}
+async function summarizeCustomerAccount(customerId) {
+  const area = $("#aiSummaryArea");
+  if (!area) return;
+  area.innerHTML = `<div class="card" style="margin-bottom:16px"><p class="muted">${tr("Generating summary…")}</p></div>`;
+  try {
+    const { summary } = await api(`/customers/${customerId}/ai-summary`, {
+      method: "POST",
+      body: "{}",
+    });
+    area.innerHTML = `<div class="card" style="margin-bottom:16px"><div class="card-head"><h3>✨ ${tr("AI Summary")}</h3></div><p>${escapeHtml(summary)}</p></div>`;
+  } catch (e) {
+    area.innerHTML = `<div class="card" style="margin-bottom:16px"><p class="muted">${escapeHtml(e.message)}</p></div>`;
   }
 }
 function downloadBusinessReport() {

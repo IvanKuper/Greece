@@ -324,6 +324,85 @@ function businessOSRoutes(app) {
     },
   );
   app.post(
+    "/api/v1/customers/:id/ai-summary",
+    authenticate,
+    permit("crm.read"),
+    async (req, res) => {
+      if (!process.env.ANTHROPIC_API_KEY)
+        return res.status(503).json({
+          error: {
+            message:
+              "AI summaries are not configured. Set ANTHROPIC_API_KEY to enable this feature.",
+          },
+        });
+      const customer = db.prepare("SELECT * FROM customers WHERE id=?").get(
+        req.params.id,
+      );
+      if (!customer) return res.sendStatus(404);
+      const all = (q, ...p) => db.prepare(q).all(...p);
+      const facts = {
+        company: customer.company_name,
+        status: customer.status,
+        customerSince: (customer.created_at || "").slice(0, 10),
+        deals: all(
+          "SELECT title,value,stage,probability FROM deals WHERE customer_id=?",
+          customer.id,
+        ),
+        projects: all(
+          "SELECT name,status,progress,deadline FROM projects WHERE customer_id=?",
+          customer.id,
+        ),
+        invoices: all(
+          "SELECT number,total,status,due_date FROM invoices WHERE customer_id=?",
+          customer.id,
+        ),
+        quotes: all(
+          "SELECT number,title,status,total FROM quotes WHERE customer_id=?",
+          customer.id,
+        ),
+        recentActivity: all(
+          "SELECT title,occurred_at FROM activities WHERE entity_type='customer' AND entity_id=? ORDER BY occurred_at DESC LIMIT 5",
+          customer.id,
+        ),
+      };
+      try {
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": process.env.ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 300,
+            messages: [
+              {
+                role: "user",
+                content: `You are a CRM assistant. Using ONLY the JSON facts below, write one short paragraph (3-5 sentences) summarizing this customer's account for a staff member about to contact them. Do not invent any information not present in the data. If a category is empty, simply don't mention it. Write in plain English, no markdown, no headings.\n\n${JSON.stringify(facts)}`,
+              },
+            ],
+          }),
+        });
+        if (!r.ok) {
+          console.error("Anthropic API error:", r.status, await r.text());
+          return res.status(502).json({
+            error: { message: "AI summary generation failed. Please try again." },
+          });
+        }
+        const data = await r.json(),
+          summary = data.content?.[0]?.text?.trim() || "";
+        audit(req, "customer.ai_summary", "customer", customer.id, null, {});
+        res.json({ summary });
+      } catch (error) {
+        console.error("AI summary request failed:", error.message);
+        res.status(502).json({
+          error: { message: "AI summary generation failed. Please try again." },
+        });
+      }
+    },
+  );
+  app.post(
     "/api/v1/customers/:id/portal-token",
     authenticate,
     permit("crm.update"),
