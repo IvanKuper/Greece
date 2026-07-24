@@ -324,6 +324,23 @@ function businessOSRoutes(app) {
     },
   );
   app.post(
+    "/api/v1/customers/:id/portal-token",
+    authenticate,
+    permit("crm.update"),
+    (req, res) => {
+      const customer = db.prepare("SELECT id FROM customers WHERE id=?").get(
+        req.params.id,
+      );
+      if (!customer) return res.sendStatus(404);
+      const token = crypto.randomBytes(24).toString("hex");
+      db.prepare(
+        "UPDATE customers SET portal_token=?,updated_at=? WHERE id=?",
+      ).run(token, now(), customer.id);
+      audit(req, "customer.portal_token", "customer", customer.id, null, {});
+      res.json({ portal_token: token });
+    },
+  );
+  app.post(
     "/api/v1/customers/:id/contacts",
     authenticate,
     permit("crm.create"),
@@ -1274,6 +1291,70 @@ function businessOSRoutes(app) {
     );
     res.json({ ok: true });
   });
+  app.get("/api/v1/public/portal/:token", (req, res) => {
+    const customer = db
+      .prepare("SELECT * FROM customers WHERE portal_token=?")
+      .get(req.params.token);
+    if (!customer) return res.sendStatus(404);
+    const invoices = db
+        .prepare(
+          "SELECT id,number,issue_date,due_date,total,status FROM invoices WHERE customer_id=? ORDER BY issue_date DESC",
+        )
+        .all(customer.id),
+      quotes = db
+        .prepare(
+          "SELECT number,title,status,total,valid_until,public_token FROM quotes WHERE customer_id=? ORDER BY created_at DESC",
+        )
+        .all(customer.id),
+      projects = db
+        .prepare(
+          "SELECT name,status,progress,deadline FROM projects WHERE customer_id=? ORDER BY created_at DESC",
+        )
+        .all(customer.id),
+      cfg = settings();
+    res.json({
+      customer: {
+        company_name: customer.company_name,
+        contact_name: customer.contact_name,
+      },
+      invoices,
+      quotes,
+      projects,
+      company: { name: cfg.company_name, phone: cfg.phone, email: cfg.email },
+    });
+  });
+  app.get(
+    "/api/v1/public/portal/:token/invoices/:invoiceId/pdf",
+    (req, res) => {
+      const customer = db
+        .prepare("SELECT id FROM customers WHERE portal_token=?")
+        .get(req.params.token);
+      if (!customer) return res.sendStatus(404);
+      const inv = db
+        .prepare(
+          "SELECT i.*,c.company_name,c.contact_name,c.address FROM invoices i LEFT JOIN customers c ON c.id=i.customer_id WHERE i.id=? AND i.customer_id=?",
+        )
+        .get(req.params.invoiceId, customer.id);
+      if (!inv) return res.sendStatus(404);
+      const items = db
+          .prepare("SELECT * FROM invoice_items WHERE invoice_id=?")
+          .all(inv.id),
+        cfg = settings(),
+        doc = new PDFDocument({
+          size: "A4",
+          margin: 48,
+          info: { Title: `Invoice ${inv.number}`, Author: cfg.company_name },
+        });
+      res.type("application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${inv.number}.pdf"`,
+      );
+      doc.pipe(res);
+      drawInvoicePdf(doc, inv, items, cfg);
+      doc.end();
+    },
+  );
   app.get(
     "/api/v1/payroll/:id/pdf",
     authenticate,

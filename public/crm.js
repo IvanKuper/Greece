@@ -903,6 +903,8 @@ const PHRASE_HE = {
   "Daily views (last 30 days)": "צפיות יומיות (30 יום אחרונים)",
   "Top pages": "העמודים המובילים",
   "No page views recorded yet.": "עדיין לא נרשמו צפיות.",
+  "Portal link": "קישור לאזור אישי",
+  "Portal link copied to clipboard": "הקישור לאזור האישי הועתק ללוח",
 };
 function tr(s) {
   return (lang === "he" && PHRASE_HE[s]) || s;
@@ -1525,7 +1527,7 @@ async function customer360(customerId) {
     } catch {
       /* leave empty if stored value isn't valid JSON */
     }
-    el.innerHTML = `${pageHead(c.company_name, `${c.contact_name || ""} · ${c.email || ""} · ${c.phone || ""}`, `<button class="btn secondary" onclick="openModule('customers')">← ${title("Customers")}</button><button class="btn" onclick="addCustomerContact('${c.id}')">＋ ${tr("Contact")}</button><button class="btn secondary" onclick="sendWhatsApp('${c.id}','${escapeJs(c.phone || "")}')">${tr("WhatsApp")}</button>`)}${tagList.length ? `<div style="margin:-10px 0 20px">${tagList.map((t) => `<span class="badge">${escapeHtml(t)}</span>`).join(" ")}</div>` : ""}<div class="kpis">${[
+    el.innerHTML = `${pageHead(c.company_name, `${c.contact_name || ""} · ${c.email || ""} · ${c.phone || ""}`, `<button class="btn secondary" onclick="openModule('customers')">← ${title("Customers")}</button><button class="btn" onclick="addCustomerContact('${c.id}')">＋ ${tr("Contact")}</button><button class="btn secondary" onclick="sendWhatsApp('${c.id}','${escapeJs(c.phone || "")}')">${tr("WhatsApp")}</button><button class="btn secondary" onclick="copyPortalLink('${c.id}')">${tr("Portal link")}</button>`)}${tagList.length ? `<div style="margin:-10px 0 20px">${tagList.map((t) => `<span class="badge">${escapeHtml(t)}</span>`).join(" ")}</div>` : ""}<div class="kpis">${[
       [
         tr("Pipeline"),
         money(x.deals.reduce((n, d) => n + Number(d.value || 0), 0)),
@@ -1767,6 +1769,23 @@ async function copyQuoteLink(token) {
     toast(tr("Link copied to clipboard"));
   } catch {
     toast(url);
+  }
+}
+async function copyPortalLink(customerId) {
+  try {
+    const { portal_token } = await api(`/customers/${customerId}/portal-token`, {
+      method: "POST",
+      body: "{}",
+    });
+    const url = `${location.origin}/portal.html?token=${portal_token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast(tr("Portal link copied to clipboard"));
+    } catch {
+      toast(url);
+    }
+  } catch (e) {
+    toast(e.message);
   }
 }
 function downloadBusinessReport() {

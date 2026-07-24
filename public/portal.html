@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>אזור אישי — Greece</title>
+    <link href="/images/logo.png" rel="icon" type="image/png" />
+    <style>
+      :root {
+        --bg: #0b0e12;
+        --surface: #12161d;
+        --surface2: #171c25;
+        --text: #f2ede6;
+        --muted: #9aa2ae;
+        --line: #232935;
+        --primary: #b86f3c;
+        --green: #24976f;
+        --red: #d05252;
+        --yellow: #d29a35;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+        padding: 24px 16px 60px;
+      }
+      .wrap {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 24px;
+        font-weight: 800;
+        font-size: 20px;
+        letter-spacing: 1px;
+      }
+      .brand img {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+      }
+      h1 {
+        font-size: 24px;
+        margin: 0 0 4px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 24px;
+        margin: 20px 0;
+      }
+      .card h2 {
+        font-size: 16px;
+        margin: 0 0 14px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      td {
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 14px;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      td:last-child {
+        text-align: left;
+      }
+      .badge {
+        display: inline-flex;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #486fce16;
+        color: #7fa0ff;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .badge.paid,
+      .badge.accepted,
+      .badge.active,
+      .badge.completed {
+        background: #24976f16;
+        color: var(--green);
+      }
+      .badge.overdue,
+      .badge.rejected,
+      .badge.cancelled {
+        background: #d0525216;
+        color: var(--red);
+      }
+      .badge.sent {
+        background: #d29a3518;
+        color: var(--yellow);
+      }
+      a.link {
+        color: var(--primary);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      a.link:hover {
+        text-decoration: underline;
+      }
+      .progress {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--surface2);
+        overflow: hidden;
+        margin-top: 6px;
+        width: 140px;
+      }
+      .progress i {
+        display: block;
+        height: 100%;
+        background: var(--primary);
+      }
+      #app > p.muted {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="brand"><img alt="" src="/images/logo.png" />GREECE</div>
+      <div id="app"><p class="muted">טוען…</p></div>
+    </div>
+    <script src="/portal.js"></script>
+  </body>
+</html>
