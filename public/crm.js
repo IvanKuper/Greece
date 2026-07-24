@@ -106,6 +106,55 @@ const modules = {
       "description",
     ],
   },
+  service_requests: {
+    label: "Service Requests",
+    icon: "◍",
+    group: "Work",
+    fields: [
+      "number",
+      "customer_id",
+      "title",
+      "description",
+      "category",
+      "priority",
+      "status",
+      "assigned_to",
+      "sla_due_at",
+    ],
+  },
+  work_orders: {
+    label: "Work Orders",
+    icon: "⚒",
+    group: "Work",
+    fields: [
+      "number",
+      "customer_id",
+      "asset_id",
+      "title",
+      "description",
+      "priority",
+      "status",
+      "assigned_employee_id",
+      "scheduled_start",
+      "scheduled_end",
+    ],
+  },
+  assets: {
+    label: "Assets",
+    icon: "▨",
+    group: "Work",
+    fields: [
+      "asset_tag",
+      "name",
+      "customer_id",
+      "category",
+      "manufacturer",
+      "model",
+      "location",
+      "status",
+      "next_service_at",
+    ],
+  },
   calendar_events: {
     label: "Calendar",
     icon: "▣",
@@ -198,6 +247,20 @@ const modules = {
       "tax",
       "net_salary",
       "status",
+    ],
+  },
+  time_entries: {
+    label: "Time Entries",
+    icon: "◔",
+    group: "People",
+    fields: [
+      "employee_id",
+      "work_order_id",
+      "started_at",
+      "ended_at",
+      "minutes",
+      "entry_type",
+      "notes",
     ],
   },
   portal: {
@@ -555,6 +618,36 @@ const WORD_HE = {
   down: "מושבת",
   queued: "בתור",
   failed: "נכשל",
+  "service requests": "קריאות שירות",
+  "work orders": "צווי עבודה",
+  assets: "נכסים",
+  "time entries": "רישומי זמן",
+  assigned_to: "מוקצה ל",
+  sla_due_at: "יעד SLA",
+  asset_id: "נכס",
+  asset_tag: "תג נכס",
+  manufacturer: "יצרן",
+  model: "דגם",
+  serial_number: "מספר סידורי",
+  next_service_at: "שירות הבא",
+  installed_at: "תאריך התקנה",
+  warranty_until: "אחריות עד",
+  assigned_employee_id: "עובד מוקצה",
+  scheduled_start: "תחילת תזמון",
+  scheduled_end: "סיום תזמון",
+  work_order_id: "צו עבודה",
+  started_at: "התחיל בשעה",
+  ended_at: "הסתיים בשעה",
+  minutes: "דקות",
+  entry_type: "סוג רישום",
+  general: "כללי",
+  repair: "תיקון",
+  installation: "התקנה",
+  retired: "הוצא משימוש",
+  open: "פתוח",
+  resolved: "נפתר",
+  travel: "נסיעה",
+  break: "הפסקה",
 };
 const PHRASE_HE = {
   "Open menu": "פתח תפריט",
@@ -908,6 +1001,20 @@ const PHRASE_HE = {
   "Summarize account": "סכם חשבון לקוח",
   "Generating summary…": "יוצר סיכום…",
   "AI Summary": "סיכום AI",
+  "Convert to work order": "המר לצו עבודה",
+  "Work order created": "צו העבודה נוצר",
+  "Check in": "צ'ק אין",
+  "Checking in…": "מבצע צ'ק אין…",
+  "Checked in": "בוצע צ'ק אין",
+  "Check out": "צ'ק אאוט",
+  "Checking out…": "מבצע צ'ק אאוט…",
+  "Checked out": "בוצע צ'ק אאוט",
+  Complete: "השלם",
+  "Complete work order": "השלם צו עבודה",
+  "Resolution notes": "הערות סיום",
+  "Customer signature (typed name)": "חתימת לקוח (שם מוקלד)",
+  "Mark complete": "סמן כהושלם",
+  "Work order completed": "צו העבודה הושלם",
 };
 function tr(s) {
   return (lang === "he" && PHRASE_HE[s]) || s;
@@ -1567,7 +1674,7 @@ async function customer360(customerId) {
             `<div class="activity-row"><span>◦</span><div><b>${escapeHtml(a.title || a.type)}</b><small class="muted" style="display:block">${escapeHtml(a.description || "")} · ${date(a.occurred_at)}</small></div></div>`,
         )
         .join("") || `<p class="muted">${tr("Activity will appear here.")}</p>`
-    }</section></div><div class="grid3" style="margin-top:16px"><section class="card"><h3>${title("Deals")}</h3>${miniRows(x.deals, "title", "value")}</section><section class="card"><h3>${title("Projects")}</h3>${miniRows(x.projects, "name", "status")}</section><section class="card"><h3>${title("Invoices")}</h3>${miniRows(x.invoices, "number", "total")}</section><section class="card"><h3>${title("Quotes")}</h3>${miniRows(x.quotes, "title", "total")}</section>${c.notes ? `<section class="card"><h3>${title("Notes")}</h3><p class="muted">${escapeHtml(c.notes)}</p></section>` : ""}</div>`;
+    }</section></div><div class="grid3" style="margin-top:16px"><section class="card"><h3>${title("Deals")}</h3>${miniRows(x.deals, "title", "value")}</section><section class="card"><h3>${title("Projects")}</h3>${miniRows(x.projects, "name", "status")}</section><section class="card"><h3>${title("Invoices")}</h3>${miniRows(x.invoices, "number", "total")}</section><section class="card"><h3>${title("Quotes")}</h3>${miniRows(x.quotes, "title", "total")}</section>${c.notes ? `<section class="card"><h3>${title("Notes")}</h3><p class="muted">${escapeHtml(c.notes)}</p></section>` : ""}</div><div class="grid3" style="margin-top:16px"><section class="card"><h3>${title("Assets")}</h3>${miniRows(x.assets, "name", "status")}</section><section class="card"><h3>${title("Service Requests")}</h3>${miniRows(x.serviceRequests, "title", "status")}</section><section class="card"><h3>${title("Work Orders")}</h3>${miniRows(x.workOrders, "title", "status")}</section></div>`;
   } catch (e) {
     el.innerHTML = errorView(e);
   }
@@ -1772,6 +1879,88 @@ async function copyQuoteLink(token) {
     toast(tr("Link copied to clipboard"));
   } catch {
     toast(url);
+  }
+}
+async function convertServiceRequestToWorkOrder(id) {
+  try {
+    await api(`/service_requests/${id}/convert`, { method: "POST", body: "{}" });
+    toast(tr("Work order created"));
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+function getGeolocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 5000 },
+    );
+  });
+}
+async function workOrderCheckIn(id) {
+  try {
+    toast(tr("Checking in…"));
+    const geo = await getGeolocation();
+    await api(`/work_orders/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        check_in_at: new Date().toISOString(),
+        check_in_lat: geo?.lat ?? null,
+        check_in_lng: geo?.lng ?? null,
+        status: "in_progress",
+      }),
+    });
+    toast(tr("Checked in"));
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function workOrderCheckOut(id) {
+  try {
+    toast(tr("Checking out…"));
+    const geo = await getGeolocation();
+    await api(`/work_orders/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        check_out_at: new Date().toISOString(),
+        check_out_lat: geo?.lat ?? null,
+        check_out_lng: geo?.lng ?? null,
+      }),
+    });
+    toast(tr("Checked out"));
+    render();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+async function workOrderComplete(id) {
+  const data = await promptForm(
+    tr("Complete work order"),
+    [
+      { name: "resolution", label: tr("Resolution notes"), required: true },
+      { name: "customer_signature", label: tr("Customer signature (typed name)") },
+    ],
+    tr("Mark complete"),
+  );
+  if (!data || !data.resolution) return;
+  try {
+    await api(`/work_orders/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        resolution: data.resolution,
+        customer_signature: data.customer_signature || "",
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      }),
+    });
+    toast(tr("Work order completed"));
+    render();
+  } catch (e) {
+    toast(e.message);
   }
 }
 async function copyPortalLink(customerId) {
@@ -2198,6 +2387,10 @@ function rowActions(r, m) {
         ? `<button class="btn secondary" onclick="downloadProtected('/quotes/${r.id}/pdf','${escapeJs(r.number)}.pdf')">${tr("PDF")}</button> <button class="btn secondary" onclick="emailQuote('${r.id}')">${tr("Email")}</button> <button class="btn secondary" onclick="copyQuoteLink('${escapeJs(r.public_token)}')">${tr("Copy link")}</button> ${r.status === "accepted" ? `<button class="btn" onclick="convertQuoteToInvoice('${r.id}')">${tr("Convert to invoice")}</button> ` : ""}`
         : current === "payroll"
           ? `<button class="btn secondary" onclick="downloadProtected('/payroll/${r.id}/pdf','payslip-${escapeJs(r.month)}.pdf')">${tr("PDF")}</button> `
+          : current === "service_requests" && r.status !== "closed" && !r.resolved_at
+          ? `<button class="btn" onclick="convertServiceRequestToWorkOrder('${r.id}')">${tr("Convert to work order")}</button> `
+          : current === "work_orders"
+          ? `${!r.check_in_at ? `<button class="btn secondary" onclick="workOrderCheckIn('${r.id}')">${tr("Check in")}</button> ` : !r.check_out_at ? `<button class="btn secondary" onclick="workOrderCheckOut('${r.id}')">${tr("Check out")}</button> ` : r.status !== "completed" ? `<button class="btn" onclick="workOrderComplete('${r.id}')">${tr("Complete")}</button> ` : ""}`
           : current === "documents"
           ? `<button class="btn secondary" onclick="downloadProtected('/files/${r.id}/download','${escapeJs(r.name)}')">${tr("Download")}</button> `
           : current === "notifications" && !r.read_at
@@ -2292,6 +2485,7 @@ function openForm(record) {
           "total",
           "balance",
           "days",
+          "minutes",
           "active",
         ].includes(k)
       )
@@ -2331,7 +2525,8 @@ async function wireNamePickers() {
       current_ = select.dataset.current;
     try {
       const x = await api(`/${entity}?limit=100`);
-      const labelFor = (r) => r.company_name || r.full_name || r.name || r.id;
+      const labelFor = (r) =>
+        r.company_name || r.full_name || r.name || r.title || r.number || r.id;
       const options = x.data.map(
         (r) =>
           `<option value="${escapeHtml(r.id)}" ${r.id === current_ ? "selected" : ""}>${escapeHtml(labelFor(r))}</option>`,
@@ -2378,6 +2573,9 @@ const STATUS_OPTIONS = {
   quotes: ["draft", "sent", "accepted", "rejected", "expired", "converted"],
   job_listings: ["active", "closed", "draft"],
   job_applications: ["pending", "reviewing", "interviewed", "hired", "rejected"],
+  service_requests: ["open", "in_progress", "resolved", "closed"],
+  work_orders: ["scheduled", "in_progress", "completed", "cancelled"],
+  assets: ["active", "inactive", "retired"],
 };
 const TYPE_OPTIONS = {
   transactions: ["income", "expense"],
@@ -2401,6 +2599,14 @@ function inputField(f, v = "") {
     occurred_at: "datetime-local",
     start_at: "datetime-local",
     end_at: "datetime-local",
+    installed_at: "date",
+    warranty_until: "date",
+    next_service_at: "date",
+    scheduled_start: "datetime-local",
+    scheduled_end: "datetime-local",
+    sla_due_at: "datetime-local",
+    started_at: "datetime-local",
+    ended_at: "datetime-local",
   };
   const options = {
     status: STATUS_OPTIONS[current] || [
@@ -2421,6 +2627,11 @@ function inputField(f, v = "") {
     stage: ["new", "qualified", "proposal", "negotiation", "won", "lost"],
     priority: ["low", "medium", "high", "urgent"],
     type: TYPE_OPTIONS[current] || ["income", "expense", "email", "phone", "meeting", "note"],
+    category:
+      current === "service_requests"
+        ? ["general", "maintenance", "repair", "installation", "inspection"]
+        : null,
+    entry_type: current === "time_entries" ? ["work", "travel", "break"] : null,
     event_type: ["meeting", "deadline", "reminder", "shift", "inspection"],
     leave_type: ["vacation", "sick", "personal", "unpaid"],
     source: ["website", "referral", "campaign", "organic", "partner"],
@@ -2438,8 +2649,17 @@ function inputField(f, v = "") {
     }
     return `<div class="field"><label>${tr("Tags")}</label><input name="tags" type="text" value="${escapeHtml(list.join(", "))}" placeholder="${tr("vip, contract, referral")}"><small class="muted">${tr("Comma-separated")}</small></div>`;
   }
-  if (f === "customer_id" || f === "employee_id")
-    return `<div class="field"><label>${title(f)}</label><select name="${f}" data-picker="${f === "customer_id" ? "customers" : "employees"}" data-current="${escapeHtml(v || "")}"><option value="${escapeHtml(v || "")}">${v ? tr("Loading…") : "— " + tr("Select") + " —"}</option></select></div>`;
+  const PICKER_ENTITY = {
+    customer_id: "customers",
+    employee_id: "employees",
+    assigned_employee_id: "employees",
+    asset_id: "assets",
+    service_request_id: "service_requests",
+    work_order_id: "work_orders",
+    assigned_to: "users",
+  };
+  if (PICKER_ENTITY[f])
+    return `<div class="field"><label>${title(f)}</label><select name="${f}" data-picker="${PICKER_ENTITY[f]}" data-current="${escapeHtml(v || "")}"><option value="${escapeHtml(v || "")}">${v ? tr("Loading…") : "— " + tr("Select") + " —"}</option></select></div>`;
   if (options[f])
     return `<div class="field"><label>${title(f)}</label><select name="${f}">${options[f].map((o) => `<option value="${o}" ${v === o ? "selected" : ""}>${title(o)}</option>`).join("")}</select></div>`;
   if (
@@ -2460,7 +2680,7 @@ function inputField(f, v = "") {
   let value = v ?? "";
   if (types[f] === "datetime-local" && value)
     value = String(value).slice(0, 16);
-  return `<div class="field"><label>${title(f)}</label><input name="${f}" type="${types[f] || (["amount", "value", "score", "probability", "progress", "budget", "spent", "salary", "base_salary", "bonuses", "deductions", "tax", "net_salary", "subtotal", "vat_rate", "vat_amount", "total", "balance", "days"].includes(f) ? "number" : "text")}" value="${escapeHtml(value)}" ${["company_name", "full_name", "title", "name", "number", "start_at"].includes(f) ? "required" : ""}></div>`;
+  return `<div class="field"><label>${title(f)}</label><input name="${f}" type="${types[f] || (["amount", "value", "score", "probability", "progress", "budget", "spent", "salary", "base_salary", "bonuses", "deductions", "tax", "net_salary", "subtotal", "vat_rate", "vat_amount", "total", "balance", "days", "minutes"].includes(f) ? "number" : "text")}" value="${escapeHtml(value)}" ${["company_name", "full_name", "title", "name", "number", "start_at"].includes(f) ? "required" : ""}></div>`;
 }
 function confirmDialog(message) {
   return new Promise((resolve) => {

@@ -308,6 +308,18 @@ function businessOSRoutes(app) {
           "SELECT * FROM quotes WHERE customer_id=? ORDER BY created_at DESC",
           customer.id,
         ),
+        assets: all(
+          "SELECT * FROM assets WHERE customer_id=? ORDER BY name",
+          customer.id,
+        ),
+        serviceRequests: all(
+          "SELECT * FROM service_requests WHERE customer_id=? ORDER BY created_at DESC",
+          customer.id,
+        ),
+        workOrders: all(
+          "SELECT * FROM work_orders WHERE customer_id=? ORDER BY created_at DESC",
+          customer.id,
+        ),
         tasks: all(
           "SELECT * FROM tasks WHERE customer_id=? ORDER BY due_date",
           customer.id,
@@ -362,6 +374,14 @@ function businessOSRoutes(app) {
         ),
         quotes: all(
           "SELECT number,title,status,total FROM quotes WHERE customer_id=?",
+          customer.id,
+        ),
+        assets: all(
+          "SELECT name,category,status,next_service_at FROM assets WHERE customer_id=?",
+          customer.id,
+        ),
+        openServiceRequests: all(
+          "SELECT number,title,status,priority FROM service_requests WHERE customer_id=? AND status!='closed'",
           customer.id,
         ),
         recentActivity: all(
@@ -1304,6 +1324,43 @@ function businessOSRoutes(app) {
       res.json(db.prepare("SELECT * FROM invoices WHERE id=?").get(invId));
     },
   );
+  app.post(
+    "/api/v1/service_requests/:id/convert",
+    authenticate,
+    permit("projects.create"),
+    (req, res) => {
+      const sr = db
+        .prepare("SELECT * FROM service_requests WHERE id=?")
+        .get(req.params.id);
+      if (!sr) return res.sendStatus(404);
+      const count = db.prepare("SELECT count(*) n FROM work_orders").get().n,
+        ts = now(),
+        row = {
+          id: id(),
+          number: `WO-${1001 + count}`,
+          customer_id: sr.customer_id,
+          service_request_id: sr.id,
+          title: sr.title,
+          description: sr.description,
+          priority: sr.priority,
+          status: "scheduled",
+          created_at: ts,
+          updated_at: ts,
+        },
+        keys = Object.keys(row);
+      db.prepare(
+        `INSERT INTO work_orders (${keys.join(",")}) VALUES (${keys.map(() => "?").join(",")})`,
+      ).run(...keys.map((k) => row[k]));
+      db.prepare(
+        "UPDATE service_requests SET status='in_progress',updated_at=? WHERE id=?",
+      ).run(ts, sr.id);
+      audit(req, "service_request.convert", "service_request", sr.id, null, {
+        workOrderId: row.id,
+        workOrderNumber: row.number,
+      });
+      res.json(db.prepare("SELECT * FROM work_orders WHERE id=?").get(row.id));
+    },
+  );
   app.get("/api/v1/public/quotes/:token", (req, res) => {
     const q = db
       .prepare(
@@ -1416,6 +1473,21 @@ function businessOSRoutes(app) {
           "SELECT name,status,progress,deadline FROM projects WHERE customer_id=? ORDER BY created_at DESC",
         )
         .all(customer.id),
+      assets = db
+        .prepare(
+          "SELECT id,asset_tag,name,category,location,status,next_service_at FROM assets WHERE customer_id=? ORDER BY name",
+        )
+        .all(customer.id),
+      serviceRequests = db
+        .prepare(
+          "SELECT number,title,status,priority,created_at,resolved_at FROM service_requests WHERE customer_id=? ORDER BY created_at DESC",
+        )
+        .all(customer.id),
+      workOrders = db
+        .prepare(
+          "SELECT number,title,status,scheduled_start,completed_at FROM work_orders WHERE customer_id=? ORDER BY created_at DESC",
+        )
+        .all(customer.id),
       cfg = settings();
     res.json({
       customer: {
@@ -1425,8 +1497,56 @@ function businessOSRoutes(app) {
       invoices,
       quotes,
       projects,
+      assets,
+      serviceRequests,
+      workOrders,
       company: { name: cfg.company_name, phone: cfg.phone, email: cfg.email },
     });
+  });
+  app.post("/api/v1/public/portal/:token/service-requests", (req, res) => {
+    const customer = db
+      .prepare("SELECT * FROM customers WHERE portal_token=?")
+      .get(req.params.token);
+    if (!customer) return res.sendStatus(404);
+    const title = String(req.body.title || "").trim(),
+      description = String(req.body.description || "").trim();
+    if (!title)
+      return res.status(400).json({ error: { message: "A title is required" } });
+    const count = db.prepare("SELECT count(*) n FROM service_requests").get().n,
+      ts = now(),
+      row = {
+        id: id(),
+        number: `SR-${1001 + count}`,
+        customer_id: customer.id,
+        contact_name: customer.contact_name,
+        contact_email: customer.email,
+        title,
+        description,
+        category: "general",
+        priority: "medium",
+        status: "open",
+        source: "portal",
+        created_at: ts,
+        updated_at: ts,
+      },
+      keys = Object.keys(row);
+    db.prepare(
+      `INSERT INTO service_requests (${keys.join(",")}) VALUES (${keys.map(() => "?").join(",")})`,
+    ).run(...keys.map((k) => row[k]));
+    const admins = db
+      .prepare(
+        "SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE r.name IN ('administrator','super_admin')",
+      )
+      .all();
+    for (const admin of admins)
+      notify(
+        admin.id,
+        "service",
+        "New service request",
+        `${row.number} from ${customer.company_name}: ${title}`,
+        "/crm#service_requests",
+      );
+    res.status(201).json({ ok: true, number: row.number });
   });
   app.get(
     "/api/v1/public/portal/:token/invoices/:invoiceId/pdf",
