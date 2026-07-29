@@ -167,7 +167,7 @@ test("serves public jobs and CRM shell", async () => {
   assert.equal(jobs.status, 200);
   assert.ok(Array.isArray(await jobs.json()));
   assert.equal(applications.status, 200);
-  assert.match(await applications.text(), /\/assets\/index-ZcaRxVCl\.js/);
+  assert.match(await applications.text(), /\/assets\/index-B83c03c98\.js/);
   assert.match(await crm.text(), /Greece Business Platform/);
   assert.match(await crmDeep.text(), /Greece Business Platform/);
 });

@@ -22,9 +22,9 @@ CREATE INDEX IF NOT EXISTS idx_monitoring_unresolved ON monitoring_events(resolv
 INSERT OR IGNORE INTO business_settings(key,value,category,updated_at) VALUES
 ('company_name','GREECE Maintenance & Staffing Ltd.','identity',datetime('now')),
 ('company_number','516789432','identity',datetime('now')),
-('phone','03-555-0188','contact',datetime('now')),
+('phone','050-881-6116 / 052-417-2984','contact',datetime('now')),
 ('email','greece.maintenance.servicese.ltd@gmail.com','contact',datetime('now')),
-('address','18 HaMasger Street, Tel Aviv-Yafo, Israel','contact',datetime('now')),
+('address','Bar Kochva 4, Bnei Brak, Israel','contact',datetime('now')),
 ('hours','Sun-Thu 08:00-18:00','contact',datetime('now')),
 ('vat_rate','17','finance',datetime('now')),
 ('currency','ILS','finance',datetime('now')),

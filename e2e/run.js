@@ -35,7 +35,7 @@ const clickSubmit = (page) =>
     assert.ok(
       await page.evaluate(() =>
         [...document.scripts].some((script) =>
-          script.src.includes("/assets/index-ZcaRxVCl.js"),
+          script.src.includes("/assets/index-B83c03c98.js"),
         ),
       ),
       "The original homepage bundle is not loaded",
