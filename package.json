@@ -42,7 +42,7 @@
     "eslint": "^10.7.0",
     "globals": "^17.7.0",
     "prettier": "^3.9.6",
-    "puppeteer-core": "^24.15.0",
+    "puppeteer-core": "^25.4.0",
     "typescript": "^7.0.2"
   },
   "overrides": {
