@@ -28,12 +28,12 @@
     "express-rate-limit": "^8.0.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^9.0.3",
+    "nodemailer": "^10.5.0",
     "pdfkit": "^0.19.1",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@axe-core/puppeteer": "^4.10.2",
+    "@axe-core/puppeteer": "^4.14.0",
     "@eslint/js": "^10.0.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
@@ -42,11 +42,17 @@
     "eslint": "^10.7.0",
     "globals": "^17.7.0",
     "prettier": "^3.9.6",
-    "puppeteer-core": "^24.15.0",
+    "puppeteer-core": "^25.17.0",
     "typescript": "^7.0.2"
   },
   "overrides": {
     "uuid": "11.1.1",
-    "brace-expansion": "5.0.8"
+    "brace-expansion": "5.0.13",
+    "eslint": {
+      "minimatch": "11.0.8"
+    },
+    "@eslint/config-array": {
+      "minimatch": "11.0.8"
+    }
   }
 }
