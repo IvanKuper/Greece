@@ -161,13 +161,10 @@ test("issues a one-time password reset token in development", async () => {
 });
 test("serves public jobs and CRM shell", async () => {
   const jobs = await fetch(base + "/api/v1/public/jobs"),
-    applications = await fetch(base + "/applications", { redirect: "manual" }),
     crm = await fetch(base + "/crm"),
     crmDeep = await fetch(base + "/crm/customers");
   assert.equal(jobs.status, 200);
   assert.ok(Array.isArray(await jobs.json()));
-  assert.equal(applications.status, 200);
-  assert.match(await applications.text(), /\/assets\/index-B83c03c98\.js/);
   assert.match(await crm.text(), /Greece Business Platform/);
   assert.match(await crmDeep.text(), /Greece Business Platform/);
 });
@@ -175,7 +172,7 @@ test("serves a sitemap with lastmod and priority for every page", async () => {
   const r = await fetch(base + "/sitemap.xml"),
     xml = await r.text();
   assert.equal(r.status, 200);
-  assert.equal((xml.match(/<url>/g) || []).length, 6);
+  assert.equal((xml.match(/<url>/g) || []).length, 5);
   assert.match(xml, /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
   assert.match(xml, /<priority>1\.0<\/priority>/);
 });
@@ -357,4 +354,20 @@ test("creates WebAuthn registration options", async () => {
   db.prepare(
     "DELETE FROM webauthn_challenges WHERE user_id=? AND purpose='registration'",
   ).run(adminId);
+});
+test("keeps leads and job applications private on the public compatibility API", async () => {
+  const entity = (name, headers = {}) =>
+    fetch(`${base}/api/apps/6a44dca7580bc27a93b13907/entities/${name}`, { headers });
+  assert.equal((await entity("Lead")).status, 401);
+  assert.equal((await entity("JobApplication")).status, 401);
+  assert.equal((await entity("JobListing")).status, 200);
+  const leads = await entity("Lead", auth());
+  assert.equal(leads.status, 200);
+  assert.ok(Array.isArray(await leads.json()));
+  assert.equal((await entity("JobApplication", auth())).status, 200);
+});
+test("sends the old applications page to the staff system", async () => {
+  const r = await fetch(base + "/applications", { redirect: "manual" });
+  assert.equal(r.status, 302);
+  assert.equal(r.headers.get("location"), "/crm");
 });

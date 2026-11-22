@@ -116,7 +116,6 @@ const clickSubmit = (page) =>
       "/contact",
       "/certifications",
       "/process",
-      "/applications",
     ]) {
       const routePage = await browser.newPage(),
         routeErrors = [];

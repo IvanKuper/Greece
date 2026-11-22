@@ -234,7 +234,15 @@ const compat = {
   JobApplication: "job_applications",
   Lead: "leads",
 };
-app.get(`/api/apps/${BID}/entities/:entity`, (req, res) => {
+// Leads and applications hold personal details: staff only. Job listings stay public.
+const compatReadPermission = { Lead: "crm.read", JobApplication: "hr.read" };
+const compatReadGuard = (req, res, next) => {
+  const permission = compatReadPermission[req.params.entity];
+  if (!permission) return next();
+  const { authenticate, permit } = require("./auth");
+  authenticate(req, res, () => permit(permission)(req, res, next));
+};
+app.get(`/api/apps/${BID}/entities/:entity`, compatReadGuard, (req, res) => {
   const table = compat[req.params.entity];
   if (!table) return res.json([]);
   let rows = db
@@ -334,7 +342,6 @@ app.get("/sitemap.xml", (req, res) => {
   const pages = [
     { path: "", priority: "1.0" },
     { path: "/contact", priority: "0.9" },
-    { path: "/applications", priority: "0.8" },
     { path: "/about", priority: "0.7" },
     { path: "/process", priority: "0.6" },
     { path: "/certifications", priority: "0.6" },
@@ -353,7 +360,7 @@ app.get("/sitemap.xml", (req, res) => {
     );
 });
 app.get(
-  ["/dashboard", "/login", "/register", "/forgot-password", "/reset-password"],
+  ["/dashboard", "/applications", "/login", "/register", "/forgot-password", "/reset-password"],
   (req, res) => res.redirect(302, "/crm"),
 );
 const crmHtmlPath = path.join(__dirname, "..", "public", "crm.html");
@@ -383,7 +390,6 @@ const PAGE_TITLES = {
   "/about": "About",
   "/process": "Process",
   "/certifications": "Certifications",
-  "/applications": "Job Applications",
   "/contact": "Contact",
 };
 const DAY_ABBR = {
