@@ -137,7 +137,8 @@
   }
   function applyBusinessDetails() {
     const mail = `mailto:${business.email}`,
-      phone = `tel:${business.phone.replace(/[^+\d]/g, "")}`;
+      // The phone field can hold two numbers ("050-... / 052-..."): dial the first one.
+      phone = `tel:${business.phone.split("/")[0].replace(/[^+\d]/g, "")}`;
     for (const a of document.querySelectorAll('a[href^="mailto:"]'))
       if (a.getAttribute("href") !== mail) a.href = mail;
     for (const a of document.querySelectorAll('a[href^="tel:"]')) {
@@ -196,12 +197,12 @@
   }
   function applySiteBranding() {
     const titleMap = {
-      "/": "Greece",
-      "/about": "About | Greece",
-      "/process": "Process | Greece",
-      "/certifications": "Certifications | Greece",
-      "/applications": "Careers | Greece",
-      "/contact": "Contact | Greece",
+      "/": "Greece | כוח אדם והחזקה",
+      "/about": "אודות | Greece",
+      "/process": "תהליך העבודה | Greece",
+      "/certifications": "תעודות והסמכות | Greece",
+      "/applications": "קריירה | Greece",
+      "/contact": "צור קשר | Greece",
     };
     const pageTitle = titleMap[location.pathname] || "Greece";
     document.title = pageTitle;
@@ -213,7 +214,7 @@
     if (descriptionMeta) descriptionMeta.content = "Greece provides staffing, maintenance, cleaning and logistics services for demanding operations.";
     const canonical = document.querySelector("link[rel='canonical']");
     if (canonical)
-      canonical.href = "https://greece-website-production.up.railway.app";
+      canonical.href = location.origin + location.pathname;
     for (const el of document.querySelectorAll("body *")) {
       if (!el.textContent) continue;
       const nextText = el.textContent.replace(/\bgris\b/gi, "Greece");
