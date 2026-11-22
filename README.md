@@ -2,6 +2,10 @@
 
 A standalone business operating platform with the Greece marketing site, a secure management workspace, and a normalized SQLite data layer.
 
+**Live demo:** https://greece-k88x.onrender.com (portfolio copy on a free server: the first load can take about a minute, and demo data resets when the server restarts). The real business site runs from a separate Postgres version at https://greece-07bq.onrender.com.
+
+![Homepage](docs/home.png)
+
 ## Start
 
 ```bash
@@ -65,7 +69,7 @@ PORT=3000
 DATABASE_PATH=/absolute/persistent/path/greece.db
 JWT_SECRET=a-long-random-secret
 JWT_REFRESH_SECRET=a-separate-long-random-secret
-PUBLIC_APP_URL=https://your-app.up.railway.app
+PUBLIC_APP_URL=https://your-app.onrender.com
 ```
 
 For email delivery and password reset support, also configure:
@@ -75,7 +79,7 @@ For email delivery and password reset support, also configure:
 RESEND_API_KEY=your-resend-api-key
 
 SMTP_HOST=smtp.example.com
-# Use port 587 with STARTTLS for Gmail and hosted environments like Railway.
+# Use port 587 with STARTTLS for Gmail and hosted environments.
 SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your-smtp-user
@@ -92,26 +96,21 @@ For the AI account-summary button on the customer 360 view, also configure:
 ANTHROPIC_API_KEY=your-anthropic-api-key
 ```
 
-## Deploying to Railway
+## Deploying (Render)
 
-Railway can host both the frontend and backend from this single Node.js app.
+The live demo runs on Render (free plan) from the included `Dockerfile`.
 
-1. Create a new Railway project and connect this GitHub repository.
-2. Set the environment variables in Railway:
+1. New Web Service from this repository, runtime Docker.
+2. Environment variables:
    - `NODE_ENV=production`
-   - `PORT=3000`
-   - `DATABASE_PATH` to the absolute path inside Railway persistent storage, for example `/storage/greece.db`
-   - `JWT_SECRET` and `JWT_REFRESH_SECRET` to strong random values
-   - `PUBLIC_APP_URL` to your Railway app URL, for example `https://your-app.up.railway.app`
-   - `RESEND_API_KEY` if you want to use Resend for email delivery, and/or `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`, and `CONTACT_EMAIL` if you want SMTP email notifications and password reset support
-   - `ANTHROPIC_API_KEY` if you want the AI "Summarize account" button on customer 360 to work
-   - `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_EMAIL`, and `INITIAL_ADMIN_PASSWORD` before the first startup if the database is new
-3. Attach Railway persistent storage and mount it at a path such as `/storage`, then point `DATABASE_PATH` to `/storage/greece.db`. This ensures the SQLite database survives restarts.
-4. Railway will use the included `Procfile` to run `NODE_ENV=production node server.js`. The app also supports `npm run dev` locally.
+   - `JWT_SECRET` and `JWT_REFRESH_SECRET`: strong random values
+   - `PUBLIC_APP_URL`: the service address, for example `https://your-app.onrender.com`
+   - `INITIAL_ADMIN_NAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD` (12+ characters) for a new database
+   - `RESEND_API_KEY`, `EMAIL_FROM`, `CONTACT_EMAIL` for contact-form email (the free plan blocks SMTP ports, so use Resend there)
+   - `ANTHROPIC_API_KEY` if you want the AI "Summarize account" button
+3. The free plan has no persistent disk, so the SQLite file starts empty after every restart. For real data attach a disk and set `DATABASE_PATH` (for example `/storage/greece.db`), or use the Postgres version.
 
-Railway has generated a service domain for this deployment: `https://greece-website-production.up.railway.app`
-
-If you prefer Docker deployment, Railway can build this repository from the included `Dockerfile`.
+The included `Procfile` (`NODE_ENV=production node server.js`) also works on hosts that use one.
 
 When you want to review or undo changes, use Git. For example:
 
