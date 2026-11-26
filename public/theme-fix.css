@@ -225,3 +225,9 @@ select:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* Decorative blobs can push the mobile home page 16px wider than the screen. */
+html,
+body {
+  overflow-x: clip;
+}

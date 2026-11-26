@@ -39,6 +39,19 @@
       }
     }
   }
+  // The compiled forms put <label> next to the field without linking them; link them for screen readers.
+  let labelSeq = 0;
+  function linkLabels() {
+    for (const label of document.querySelectorAll("label:not([for])")) {
+      if (label.querySelector("input,textarea,select")) continue;
+      const field = label.nextElementSibling?.matches("input,textarea,select")
+        ? label.nextElementSibling
+        : label.parentElement?.querySelector("input,textarea,select");
+      if (!field) continue;
+      if (!field.id) field.id = "field-" + ++labelSeq;
+      label.setAttribute("for", field.id);
+    }
+  }
   function patchCrmLinks() {
     for (const link of document.querySelectorAll('a[href="/dashboard"]'))
       link.setAttribute("href", "/crm");
@@ -211,10 +224,12 @@
     const twitterTitleMeta = document.querySelector("meta[name='twitter:title']");
     if (twitterTitleMeta) twitterTitleMeta.content = pageTitle;
     const descriptionMeta = document.querySelector("meta[name='description']");
-    if (descriptionMeta) descriptionMeta.content = "Greece provides staffing, maintenance, cleaning and logistics services for demanding operations.";
+    if (descriptionMeta) descriptionMeta.content = "חברת GREECE — פתרונות כוח אדם והחזקה מקצועיים. שירות מהיר, אמין ואיכותי לעסקים ברחבי הארץ.";
     const canonical = document.querySelector("link[rel='canonical']");
     if (canonical)
       canonical.href = location.origin + location.pathname;
+    // fast path: the full-DOM text scan only runs when the placeholder word is on the page
+    if (/\bgris\b/i.test(document.body.textContent))
     for (const el of document.querySelectorAll("body *")) {
       if (!el.textContent) continue;
       const nextText = el.textContent.replace(/\bgris\b/gi, "Greece");
@@ -240,6 +255,7 @@
     observer.disconnect();
     patchJobs();
     patchCrmLinks();
+    linkLabels();
     patchPublicNavigation();
     enhancePublicPage();
     applySiteBranding();
