@@ -231,3 +231,33 @@ html,
 body {
   overflow-x: clip;
 }
+
+/* Phones: the header row (logo, menu, language, theme) was ~60px wider than a 390px screen,
+   pushing the theme button off-screen. Tighten it so everything fits. */
+@media (max-width: 420px) {
+  nav.fixed .max-w-7xl.px-6 {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  nav.fixed .max-w-7xl > .gap-4,
+  nav.fixed .max-w-7xl > .gap-3 {
+    gap: 8px;
+  }
+  nav.fixed a > .text-2xl.font-display {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+}
+@media (max-width: 380px) {
+  nav.fixed .max-w-7xl.px-6 {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  nav.fixed .glass-light.rounded-full > button {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  nav.fixed a > .text-2xl.font-display {
+    font-size: 1rem;
+  }
+}
