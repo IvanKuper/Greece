@@ -371,3 +371,47 @@ test("sends the old applications page to the staff system", async () => {
   assert.equal(r.status, 302);
   assert.equal(r.headers.get("location"), "/crm");
 });
+// Every /api route must refuse an anonymous caller unless it is public on purpose.
+const PUBLIC_ON_PURPOSE = [
+  /^POST \/api\/v1\/auth\/(login|refresh|logout|password\/forgot|password\/reset|users\/accept-invite|passkeys\/options|passkeys\/verify)$/,
+  /^GET \/api\/health$/,
+  /^GET \/api\/v1\/public\//,
+  /^POST \/api\/v1\/public\//,
+  /^POST \/api\/csp-report$/,
+  /^(GET|POST) \/api\/(apps|app-logs)\//,
+];
+test("every API route refuses anonymous callers unless public on purpose", async () => {
+  const open = [];
+  for (const layer of app.router.stack) {
+    if (!layer.route || !String(layer.route.path).startsWith("/api")) continue;
+    for (const method of Object.keys(layer.route.methods)) {
+      const label = `${method.toUpperCase()} ${layer.route.path}`;
+      if (layer.route.path.includes("stream") || PUBLIC_ON_PURPOSE.some((re) => re.test(label))) continue;
+      const url = layer.route.path.replace(":table", "customers").replace(/:\w+/g, "x");
+      const body = ["post", "put", "patch", "delete"].includes(method) ? "{}" : undefined;
+      const r = await fetch(base + url, { method: method.toUpperCase(), headers: { "content-type": "application/json" }, body });
+      if (r.status !== 401 && r.status !== 403) open.push(`${r.status} ${label}`);
+    }
+  }
+  assert.deepEqual(open, []);
+});
+test("anonymous endpoints that send email are rate limited", async () => {
+  const hit = (p, body) => fetch(base + p, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  for (const [p, body] of [
+    ["/api/apps/6a44dca7580bc27a93b13907/integration-endpoints/Core/SendEmail", { subject: "x", body: "x" }],
+    ["/api/v1/auth/password/forgot", { email: "nobody@example.com" }],
+  ]) {
+    let last;
+    for (let i = 0; i < 9; i++) last = (await hit(p, body)).status;
+    assert.equal(last, 429, p);
+  }
+});
+test("pages carry a Hebrew title in the HTML and unknown paths are real 404s", async () => {
+  const about = await fetch(base + "/about");
+  assert.equal(about.status, 200);
+  assert.match(await about.text(), /<title>אודות \| Greece<\/title>/);
+  assert.equal((await fetch(base + "/no-such-page")).status, 404);
+  const api = await fetch(base + "/api/v1/no-such-thing");
+  assert.equal(api.status, 404);
+  assert.match(api.headers.get("content-type"), /json/);
+});

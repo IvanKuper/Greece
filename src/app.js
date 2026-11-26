@@ -73,6 +73,10 @@ const publicFormLimiter = rateLimit({
   standardHeaders: "draft-8",
   legacyHeaders: false,
 });
+// Anonymous endpoints that trigger outgoing email: one small bucket each.
+const mailLimiter = () => rateLimit({ windowMs: 10 * 60000, limit: 8, standardHeaders: "draft-8", legacyHeaders: false });
+app.use("/api/v1/auth/password/forgot", mailLimiter());
+app.use(/^\/api\/apps\/[^/]+\/integration-endpoints\/Core\/SendEmail$/, mailLimiter());
 const isHoneypotFilled = (req) => Boolean(String(req.body.website || "").trim());
 app.use("/api", limiter);
 app.use((req, res, next) => {
@@ -380,6 +384,8 @@ app.use(
     setHeaders: (res, file) => {
       if (file.includes(`${path.sep}assets${path.sep}`))
         res.setHeader("Cache-Control", "public,max-age=31536000,immutable");
+      else if (/.(webp|png|jpe?g|svg)$/.test(file) && process.env.NODE_ENV === "production")
+        res.setHeader("Cache-Control", "public,max-age=2592000");
       else if (file.endsWith(".html") || path.basename(file) === "sw.js")
         res.setHeader("Cache-Control", "no-cache");
     },
@@ -439,9 +445,26 @@ function localBusinessSchema() {
     ...(openingHours ? { openingHours } : {}),
   };
 }
+const PAGE_HEAD_TITLES = {
+  "/": "Greece | כוח אדם והחזקה",
+  "/about": "אודות | Greece",
+  "/process": "תהליך העבודה | Greece",
+  "/certifications": "תעודות והסמכות | Greece",
+  "/contact": "צור קשר | Greece",
+};
 app.use((req, res) => {
-  const pageTitle = PAGE_TITLES[req.path];
+  const route = req.path.length > 1 ? req.path.replace(/\/+$/, "") : req.path;
+  // Unknown API paths get JSON, unknown pages a real 404 (the app still renders its not-found screen).
+  if (req.path.startsWith("/api/")) return res.status(404).json({ error: { message: "Not found" } });
+  const pageTitle = PAGE_TITLES[route];
+  const headTitle = PAGE_HEAD_TITLES[route];
   let html = fs.readFileSync(indexHtmlPath, "utf-8");
+  if (headTitle)
+    html = html
+      .replace("<title>Greece</title>", `<title>${headTitle}</title>`)
+      .replace('content="Greece" property="og:title"', `content="${headTitle}" property="og:title"`)
+      .replace('content="Greece" name="twitter:title"', `content="${headTitle}" name="twitter:title"`);
+  else res.status(404);
   const schemas = [];
   if (pageTitle)
     schemas.push({
