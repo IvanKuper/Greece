@@ -172,7 +172,7 @@ test("serves a sitemap with lastmod and priority for every page", async () => {
   const r = await fetch(base + "/sitemap.xml"),
     xml = await r.text();
   assert.equal(r.status, 200);
-  assert.equal((xml.match(/<url>/g) || []).length, 5);
+  assert.equal((xml.match(/<url>/g) || []).length, 6);
   assert.match(xml, /<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
   assert.match(xml, /<priority>1\.0<\/priority>/);
 });
@@ -414,4 +414,15 @@ test("pages carry a Hebrew title in the HTML and unknown paths are real 404s", a
   const api = await fetch(base + "/api/v1/no-such-thing");
   assert.equal(api.status, 404);
   assert.match(api.headers.get("content-type"), /json/);
+});
+test("the accessibility statement is a real Hebrew page listed in the sitemap", async () => {
+  const r = await fetch(base + "/accessibility");
+  assert.equal(r.status, 200);
+  const html = await r.text();
+  assert.match(html, /<title>הצהרת נגישות \| Greece<\/title>/);
+  assert.match(html, /name="description"/);
+  assert.match(html, /tel:\+972508816116/);
+  assert.match(html, /mailto:greece\.maintenance\.servicese\.ltd@gmail\.com/);
+  assert.match(html, /https:\/\/wa\.me\/972508816116\?text=/);
+  assert.match(await (await fetch(base + "/sitemap.xml")).text(), /\/accessibility<\/loc>/);
 });
