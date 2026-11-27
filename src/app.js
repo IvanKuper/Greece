@@ -349,6 +349,7 @@ app.get("/sitemap.xml", (req, res) => {
     { path: "/about", priority: "0.7" },
     { path: "/process", priority: "0.6" },
     { path: "/certifications", priority: "0.6" },
+    { path: "/accessibility", priority: "0.3" },
   ];
   const lastmod = now().slice(0, 10);
   const urls = pages
@@ -392,6 +393,11 @@ app.use(
   }),
 );
 const indexHtmlPath = path.join(__dirname, "..", "public", "index.html");
+// A plain page, not a route of the compiled app, so it reads the same with or without scripts.
+app.get("/accessibility", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache");
+  res.sendFile(path.join(__dirname, "..", "public", "accessibility.html"));
+});
 const PAGE_TITLES = {
   "/about": "About",
   "/process": "Process",

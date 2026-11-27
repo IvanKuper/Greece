@@ -127,10 +127,29 @@ const clickSubmit = (page) =>
         `${route} did not render`,
       );
       assert.ok(await routePage.$('a[href="/crm"]'));
+      assert.ok(await routePage.$('footer a[href="/accessibility"]'), `${route} footer has no accessibility statement link`);
+      assert.match(
+        await routePage.$eval(".wa-float", (a) => a.href + " " + a.getAttribute("aria-label")),
+        /^https:\/\/wa\.me\/972508816116\?text=\S+ \S/,
+        `${route} has no labelled WhatsApp button`,
+      );
       assert.deepEqual(routeErrors, [], `${route} emitted browser errors`);
       await routePage.close();
     }
-    console.log("✓ Public routes render and link to CRM");
+    console.log("✓ Public routes render and link to CRM, accessibility statement and WhatsApp");
+
+    const statementPage = await browser.newPage();
+    await statementPage.setViewport({ width: 360, height: 740 });
+    await statementPage.goto(base + "/accessibility", { waitUntil: "networkidle0" });
+    assert.match(await statementPage.$eval("h1", (h) => h.textContent), /הצהרת נגישות/);
+    const statementA11y = await new AxePuppeteer(statementPage).analyze();
+    assert.deepEqual(
+      statementA11y.violations.map((v) => v.id),
+      [],
+      "Accessibility statement page has accessibility violations",
+    );
+    await statementPage.close();
+    console.log("✓ Accessibility statement page has no axe violations");
 
     const navigationPage = await browser.newPage();
     await navigationPage.goto(base + "/process#about", {
